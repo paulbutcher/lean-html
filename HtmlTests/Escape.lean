@@ -4,7 +4,7 @@ import Html.Escape
 Tests for `Html.Escape`.
 -/
 
-namespace Tests
+namespace HtmlTests
 
 open Html
 
@@ -89,4 +89,4 @@ theorem escape_append (a b : String) : escape (a ++ b) = escape a ++ escape b :=
   unfold escape
   rw [String.toList_append, List.map_append, join_append]
 
-end Tests
+end HtmlTests

@@ -4,7 +4,7 @@ import Html.Node
 Tests for `Html.Node`.
 -/
 
-namespace Tests
+namespace HtmlTests
 
 open Html
 
@@ -70,4 +70,4 @@ open Html
 #guard Node.renderPretty (Node.element .flow "div" [Node.element .flow "p" []]) "    "
   = "<div>\n    <p></p>\n</div>"
 
-end Tests
+end HtmlTests

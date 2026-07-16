@@ -4,7 +4,7 @@ import Html.Attrs
 Tests for `Html.Attrs`.
 -/
 
-namespace Tests
+namespace HtmlTests
 
 open Html
 
@@ -138,4 +138,4 @@ example := HtmlAttrs.render { id := true }
 #guard renderRawAttrs [("evil onmouseover=\"alert(1)", "x")]
   = " evil onmouseover=\"alert(1)=\"x\""  -- a space in the name breaks out of the tag; unchecked by design
 
-end Tests
+end HtmlTests

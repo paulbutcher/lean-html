@@ -5,7 +5,7 @@ import Html.Tags
 Tests for `Html.Tags`.
 -/
 
-namespace Tests
+namespace HtmlTests
 
 open Html
 
@@ -203,4 +203,4 @@ example : Node .flow := p [div []]
 #guard Node.render (div [ins [p ["whole paragraph added"]]])
   = "<div><ins><p>whole paragraph added</p></ins></div>"
 
-end Tests
+end HtmlTests

@@ -23,7 +23,7 @@ def escapeChar (c : Char) : String :=
 /-- Escape a whole string by escaping each character (a structural fold
 over `List Char`, not a chain of `String.replace` — see
 `docs/html-library-plan.md` 1.7: this shape is what makes `escape_safe`
-(in `Tests.Escape`) inductive-friendly in core Lean without Mathlib). -/
+(in `HtmlTests.Escape`) inductive-friendly in core Lean without Mathlib). -/
 def escape (s : String) : String :=
   String.join (s.toList.map escapeChar)
 

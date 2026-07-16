@@ -6,7 +6,7 @@ import Html.Tags
 Tests for `Html.Document`.
 -/
 
-namespace Tests
+namespace HtmlTests
 
 open Html
 
@@ -44,4 +44,4 @@ open Html
 #guard document [head [], body []] (pretty := true) (unit := "    ")
   = "<!DOCTYPE html>\n<html>\n    <head></head>\n    <body></body>\n</html>"
 
-end Tests
+end HtmlTests

@@ -21,7 +21,7 @@ index) between source and target. Here both sides are fully concrete, so
 there's no metavariable for coercion insertion to choke on -- confirmed by
 spike, including that a genuine type error (e.g. `id := true`) still
 produces a plain, direct message rather than 1.2's opaque one (see
-`Tests/Attrs.lean`'s `#guard_msgs` example). -/
+`HtmlTests/Attrs.lean`'s `#guard_msgs` example). -/
 scoped instance : Coe String (Option String) := ⟨some⟩
 
 /-- Render a boolean attribute: the bare attribute name when `true`,
@@ -42,7 +42,7 @@ private def renderOpt (name : String) : Option String → String
 /-- Render arbitrary `(name, value)` pairs verbatim: values escaped, names
 *not* validated. See `docs/html-library-plan.md` 1.3 for why this
 asymmetry is intentional (names are assumed to always be literal
-source-code identifiers) and `Tests/Attrs.lean`'s test that documents
+source-code identifiers) and `HtmlTests/Attrs.lean`'s test that documents
 the gap rather than closing it. -/
 def renderRawAttrs (attrs : List (String × String)) : String :=
   String.join (attrs.map (fun (n, v) => renderAttr n v))
