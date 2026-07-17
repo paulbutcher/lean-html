@@ -1,4 +1,6 @@
 {"version": "1.2.0",
+ "packagesDir": ".lake/packages",
+ "packages": [],
  "name": "html",
  "lakeDir": ".lake",
  "fixedToolchain": false}
