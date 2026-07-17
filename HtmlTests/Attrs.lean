@@ -1,16 +1,9 @@
 import Html.Attrs
 
-/-!
-Tests for `Html.Attrs`.
--/
-
 namespace HtmlTests
 
 open Html
 
--- #guard tests, one (or more) per attribute. Optional `String` fields are
--- set via the `Coe String (Option String)` instance above, not `some` --
--- see that instance's doc comment for why this is safe here.
 #guard HtmlAttrs.render {} = ""
 #guard HtmlAttrs.render { id := "x" } = " id=\"x\""
 #guard HtmlAttrs.render { class_ := "a b" } = " class=\"a b\""
@@ -21,9 +14,6 @@ open Html
 #guard HtmlAttrs.render { id := "x", class_ := "y" } = " id=\"x\" class=\"y\""
 #guard HtmlAttrs.render { id := "x\"y" } = " id=\"x&quot;y\""  -- values still escaped
 
--- Regression test: a genuinely wrong-typed field still fails cleanly, not
--- with 1.2's opaque "Application type mismatch ... ?m.7" message -- see
--- the `Coe` instance's doc comment above for why.
 /--
 error: Type mismatch
   true
@@ -131,8 +121,6 @@ example := HtmlAttrs.render { id := true }
 #guard renderBoolAttr "disabled" true = " disabled"
 #guard renderBoolAttr "disabled" false = ""
 
--- rawAttrs: values are escaped, but names are intentionally NOT validated
--- (documenting the gap, not fixing it -- see docs/html-library-plan.md 1.3).
 #guard renderRawAttrs [("data-x", "a\"b")] = " data-x=\"a&quot;b\""
 #guard renderRawAttrs [("hx-get", "/x"), ("hx-target", "#y")] = " hx-get=\"/x\" hx-target=\"#y\""
 #guard renderRawAttrs [("evil onmouseover=\"alert(1)", "x")]

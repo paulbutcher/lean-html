@@ -1,15 +1,11 @@
 import Html.Node
 import Html.Tags
 
-/-!
-Tests for `Html.Tags`.
--/
-
 namespace HtmlTests
 
 open Html
 
--- #guard smoke test per tag: minimal render output, no attrs.
+-- smoke test per tag: minimal render output, no attrs.
 #guard Node.render (div []) = "<div></div>"
 #guard Node.render (section_ []) = "<section></section>"
 #guard Node.render (article []) = "<article></article>"
@@ -156,11 +152,7 @@ open Html
   = "<ul><li>one</li><li>two</li></ul>"
 
 -- Negative-compile regression: `p` only accepts phrasing children, so a
--- `<div>` (flow) directly inside a `<p>` must fail to typecheck -- this is
--- content-model correctness as a corollary of type soundness (1.1),
--- checked by `#guard_msgs` rather than left as a "should fail" comment
--- (per Phase 4/1.7: confirmed this works instead of reaching for a
--- separate negative-compile CI mechanism).
+-- `<div>` (flow) directly inside a `<p>` must fail to typecheck.
 /--
 error: Application type mismatch: The argument
   div []
@@ -174,9 +166,6 @@ in the application
 #guard_msgs in
 example : Node .flow := p [div []]
 
--- Pretty-printing (Phase 6), end-to-end through real tags: block-vs-inline
--- layout composes correctly, and whitespace-significant content
--- (`pre`/`textarea`) is never touched regardless of surrounding layout.
 #guard Node.renderPretty (div [p ["Hello, "], strong ["world"]])
   = "<div>\n  <p>Hello, </p>\n  <strong>world</strong>\n</div>"
 #guard Node.renderPretty (ul [li [Node.text "one"], li [Node.text "two"]])
@@ -186,18 +175,11 @@ example : Node .flow := p [div []]
 #guard Node.renderPretty (div [(textarea "line1\nline2  spaced" : Node .flow)])
   = "<div>\n  <textarea>line1\nline2  spaced</textarea>\n</div>"
 
--- `Coe String (Option String)` (Html/Attrs.lean) applies at a real tag call
--- site too, not just a bare struct literal.
 #guard Node.render (div [] (attrs := { id := "x", class_ := "y" }))
   = "<div id=\"x\" class=\"y\"></div>"
 #guard Node.render (a (linkAttrs := { href := "/x", target := "_blank" }) [Node.text "go"])
   = "<a href=\"/x\" target=\"_blank\">go</a>"
 
--- `ins`/`del`'s transparent content model (see their doc comment): the
--- *same* definitions resolve to a phrasing element directly inside a `<p>`
--- and to a flow element directly inside a `<div>`, with no manual type
--- ascription at either call site -- `cat` is inferred from context both
--- ways.
 #guard Node.render (p [Node.text "Some ", del ["old"], Node.text " ", ins ["new"], Node.text " text"])
   = "<p>Some <del>old</del> <ins>new</ins> text</p>"
 #guard Node.render (div [ins [p ["whole paragraph added"]]])

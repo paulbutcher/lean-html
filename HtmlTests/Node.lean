@@ -1,16 +1,9 @@
 import Html.Node
 
-/-!
-Tests for `Html.Node`.
--/
-
 namespace HtmlTests
 
 open Html
 
--- Node-shape regression tests (Phase 1): minimal render output for a
--- normal element and a void element. No attributes yet (Phase 3) and no
--- escaping yet (Phase 2), so nothing attribute- or text-bearing here.
 #guard Node.render (Node.element .flow "div" []) = "<div></div>"
 #guard Node.render (Node.element .flow "div" [Node.element .flow "p" []]) = "<div><p></p></div>"
 #guard Node.render (Node.voidElement .flow "br") = "<br>"
@@ -22,7 +15,7 @@ open Html
 -- String literals coerce directly to a `text` leaf (no `Node.text` needed).
 #guard Node.render (Node.element .flow "p" [("hi" : Node .flow)]) = "<p>hi</p>"
 
--- Pretty-printing (Phase 6): empty and void elements stay one line.
+-- Pretty-printing: empty and void elements stay one line.
 #guard Node.renderPretty (Node.element .flow "div" []) = "<div></div>"
 #guard Node.renderPretty (Node.voidElement .flow "br") = "<br>"
 
@@ -34,7 +27,7 @@ open Html
   = "<div><b>x</b></div>"
 
 -- A lone *structured* (non-leaf) child, or a void child, does get its own
--- indented line -- it has internal shape worth surfacing.
+-- indented line
 #guard Node.renderPretty (Node.element .flow "div" [Node.element .flow "p" []])
   = "<div>\n  <p></p>\n</div>"
 #guard Node.renderPretty (Node.element .flow "div" [(Node.voidElement .flow "hr" : Node .flow)])

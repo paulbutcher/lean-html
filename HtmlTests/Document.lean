@@ -2,10 +2,6 @@ import Html.Document
 import Html.Node
 import Html.Tags
 
-/-!
-Tests for `Html.Document`.
--/
-
 namespace HtmlTests
 
 open Html

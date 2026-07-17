@@ -1,14 +1,9 @@
 import Html.Escape
 
-/-!
-Tests for `Html.Escape`.
--/
-
 namespace HtmlTests
 
 open Html
 
--- #guard tests: one per metacharacter, plus combinations.
 #guard escape "<script>" = "&lt;script&gt;"
 #guard escape "\"onclick=\"" = "&quot;onclick=&quot;"
 #guard escape "a & b" = "a &amp; b"
@@ -19,10 +14,6 @@ open Html
 #guard renderAttr "class" "a\"b" = " class=\"a&quot;b\""
 #guard renderAttr "href" "x" = " href=\"x\""
 
-/-- Internal, `Bool`-valued (core Lean does not synthesize
-`Decidable (∀ c ∈ l, P c)` for a `Prop`-valued predicate built from `∨`/`=`,
-so `decide` needs this to be computable from the start; see Phase 0 spike
-notes). -/
 private def isDangerous (c : Char) : Bool := c == '<' || c == '>' || c == '"'
 
 private theorem escapeChar_clean (c : Char) :
@@ -50,8 +41,7 @@ private theorem join_toList (l : List String) :
     rw [ih (acc ++ a)]
     simp [String.toList_append, List.append_assoc]
 
-/-- **The XSS-relevant safety property, and the main piece of formal
-verification in this library**: `escape`'s output never contains a raw
+/-- **The XSS-relevant safety property:** `escape`'s output never contains a raw
 (unescaped) `<`, `>`, or `"`. This is what makes double-quote-delimited,
 escaped attribute values and escaped text content safe against markup
 breakout — see `renderAttr` for the paired renderer-side invariant this
@@ -81,7 +71,7 @@ private theorem join_append (l1 l2 : List String) :
   unfold String.join
   rw [List.foldl_append, foldl_append_eq l2]
 
-/-- Compositionality: escaping two fragments and concatenating the results
+/-- **Compositionality:** escaping two fragments and concatenating the results
 is the same as escaping their concatenation directly. No double-escaping
 and no under-escaping happens at the fragment boundary — this is the
 formal version of the "`&` must go first" ordering note on `escapeChar`. -/

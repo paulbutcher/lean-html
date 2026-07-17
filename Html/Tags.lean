@@ -4,19 +4,15 @@ import Html.Attrs
 
 /-!
 Named tag functions, built on `Html/Node.lean`'s constructor shapes and
-`Html/Attrs.lean`'s typed attribute vocabulary. See
-`docs/html-library-plan.md` Phase 4 for the design rationale.
+`Html/Attrs.lean`'s typed attribute vocabulary.
 
-Scope notes (documented here rather than left as silent gaps):
+Scope notes:
 
 - `html` is **not** defined here -- it's inseparable from the
   `<!DOCTYPE html>` prefix that makes it a document at all, so it stays
   `Html.document`'s sole responsibility rather than a general-purpose tag.
-  `head`, `body`, `title`, `meta`, `link`, `script` *are* ordinary tags
-  (below): `Html.document` no longer builds them itself -- callers compose
-  them and pass the results in as `document`'s children.
-- Only `AAttrs`, `ImgAttrs`, `InputAttrs` (Phase 3) get dedicated typed
-  attribute records. Every other tag below takes plain `HtmlAttrs` (global
+- Only `AAttrs`, `ImgAttrs`, `InputAttrs` get dedicated typed attribute
+  records. Every other tag below takes plain `HtmlAttrs` (global
   attributes only) plus `rawAttrs` -- element-specific attributes beyond
   those three examples (`form`'s `action`/`method`, `button`'s `disabled`,
   `select`'s `multiple`, `label`'s `for`, ...) are not modeled as typed
@@ -28,7 +24,6 @@ Scope notes (documented here rather than left as silent gaps):
   (only `<li>`), `table`/`thead`/`tbody`/`tr` (only specific row/cell
   children), `select` (only `<option>`) -- accept general flow or phrasing
   children here rather than enforcing the narrower real-world constraint.
-  That fidelity is Phase 6 scope ("broader `Category` lattice").
 -/
 
 namespace Html
@@ -81,10 +76,6 @@ def search (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.element .flow "search" children (combineAttrs "" attrs rawAttrs)
 
--- Document metadata/structure: ordinary flow-content tags, but only ever
--- meaningful as `Html.document`'s children (directly, or nested inside a
--- `head`/`body` of its children) -- `document` itself no longer builds
--- any of these (see module-doc scope note).
 def head (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.element .flow "head" children (combineAttrs "" attrs rawAttrs)
@@ -97,12 +88,11 @@ def title (content : String) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.textElement .flow "title" content (combineAttrs "" attrs rawAttrs)
 
-/-- Void; takes `rawAttrs` as its primary content rather than a typed
+/-- Takes `rawAttrs` as its primary content rather than a typed
 attrs record, since a meta tag's shape varies by purpose --
 `[("charset", "utf-8")]`, `[("name", "viewport"), ("content", "...")]`,
 `[("http-equiv", "..."), ("content", "...")]`, ... -- with no one shape
-common enough to single out as required fields (unlike `link`/`script`
-below, which are always `rel`+`href`/`src`). -/
+common enough to single out as required fields. -/
 def meta_ (rawAttrs : List (String × String)) (attrs : HtmlAttrs := {}) : Node .flow :=
   Node.voidElement .flow "meta" (combineAttrs "" attrs rawAttrs)
 
@@ -114,23 +104,14 @@ def base (baseAttrs : BaseAttrs := {}) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.voidElement .flow "base" (combineAttrs (BaseAttrs.render baseAttrs) attrs rawAttrs)
 
--- Not a void element (unlike `link`): `<script src="...">` still needs a
--- closing tag.
 def script (scriptAttrs : ScriptAttrs) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.element .flow "script" [] (combineAttrs (ScriptAttrs.render scriptAttrs) attrs rawAttrs)
 
--- Not a raw-text element like an inline `<script>`/`<style>` would be
--- (explicitly out of scope, see docs/html-library-plan.md Phase 0):
--- `noscript`'s content is ordinary flow-content fallback markup, not
--- script/CSS text needing different escaping.
 def noscript (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.element .flow "noscript" children (combineAttrs "" attrs rawAttrs)
 
--- Only the static markup shape is modeled, not `<template>`'s real
--- runtime semantics (inert content, `.content` fragment) -- same
--- simplification level as every other container here.
 def template (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.element .flow "template" children (combineAttrs "" attrs rawAttrs)
@@ -143,8 +124,6 @@ def slot (children : List (Node .phrasing)) (slotAttrs : SlotAttrs := {})
     (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node .phrasing :=
   Node.element .phrasing "slot" children (combineAttrs (SlotAttrs.render slotAttrs) attrs rawAttrs)
 
--- Text: flow content, phrasing-only children (a `<div>` inside these is a
--- type error, not just an HTML validity error).
 def p (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.elementOf .flow .phrasing "p" children (combineAttrs "" attrs rawAttrs)
@@ -173,8 +152,6 @@ def h6 (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.elementOf .flow .phrasing "h6" children (combineAttrs "" attrs rawAttrs)
 
--- Text: flow content, flow children (list/quote/preformatted containers;
--- see the module-doc note on `ul`/`ol` not enforcing "only `<li>`").
 def ul (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.element .flow "ul" children (combineAttrs "" attrs rawAttrs)
@@ -220,12 +197,10 @@ def pre (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.elementOf .flow .phrasing "pre" children (combineAttrs "" attrs rawAttrs)
 
--- `code`: phrasing content, phrasing children.
 def code (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
   Node.element .phrasing "code" children (combineAttrs "" attrs rawAttrs)
 
--- Inline: phrasing content, phrasing children.
 def a (linkAttrs : AAttrs) (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
   Node.element .phrasing "a" children (combineAttrs (AAttrs.render linkAttrs) attrs rawAttrs)
@@ -335,13 +310,10 @@ def data (dataAttrs : DataAttrs) (children : List (Node .phrasing)) (attrs : Htm
 
 /-- `ins`/`del` have HTML5's "transparent" content model: each takes on
 whatever category its surrounding context allows, rather than having a
-fixed category of its own (`docs/html-library-plan.md` 1.1). `cat` is left
-as a free, auto-bound implicit here -- exactly the same trick `Node.text`/
-`Node.unsafeRaw` already use -- instead of being pinned to `.flow` or
-`.phrasing` like every other tag above, since `Node.element`'s signature is
-already generic over its category. This makes `ins`/`del` usable directly
-inside a `<p>` (phrasing context) or a `<div>` (flow context) alike, with
-no manual type ascription needed at either call site. -/
+fixed category of its own. `cat` is left as a free, auto-bound implicit.
+This makes `ins`/`del` usable directly inside a `<p>` (phrasing context)
+or a `<div>` (flow context) alike, with no manual type ascription needed
+at either call site. -/
 def ins (children : List (Node cat)) (insAttrs : InsDelAttrs := {}) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node cat :=
   Node.element cat "ins" children (combineAttrs (InsDelAttrs.render insAttrs) attrs rawAttrs)
@@ -353,7 +325,6 @@ def del (children : List (Node cat)) (insAttrs : InsDelAttrs := {}) (attrs : Htm
 def br (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node .phrasing :=
   Node.voidElement .phrasing "br" (combineAttrs "" attrs rawAttrs)
 
--- Forms: phrasing content (form controls), except `form` itself (flow).
 def form (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.element .flow "form" children (combineAttrs "" attrs rawAttrs)
@@ -374,7 +345,6 @@ def label (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
   Node.element .phrasing "label" children (combineAttrs "" attrs rawAttrs)
 
--- `textarea`/`option`: text content model, not nested elements (RCDATA-like).
 def textarea (content : String) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
   Node.textElement .phrasing "textarea" content (combineAttrs "" attrs rawAttrs)
@@ -411,8 +381,6 @@ def meter (children : List (Node .phrasing)) (meterAttrs : MeterAttrs := {})
     (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node .phrasing :=
   Node.element .phrasing "meter" children (combineAttrs (MeterAttrs.render meterAttrs) attrs rawAttrs)
 
--- Interactive elements: flow content, flow children, except `summary`
--- (flow content, phrasing-only children, like `p`/`legend`).
 def details (children : List (Node .flow)) (openAttrs : OpenAttrs := {}) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.element .flow "details" children (combineAttrs (OpenAttrs.render openAttrs) attrs rawAttrs)
@@ -425,7 +393,6 @@ def dialog (children : List (Node .flow)) (openAttrs : OpenAttrs := {}) (attrs :
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.element .flow "dialog" children (combineAttrs (OpenAttrs.render openAttrs) attrs rawAttrs)
 
--- Media/void.
 def img (imgAttrs : ImgAttrs) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
   Node.voidElement .phrasing "img" (combineAttrs (ImgAttrs.render imgAttrs) attrs rawAttrs)
@@ -433,10 +400,6 @@ def img (imgAttrs : ImgAttrs) (attrs : HtmlAttrs := {})
 def hr (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.voidElement .flow "hr" (combineAttrs "" attrs rawAttrs)
 
--- Embedded content: flow content, flow children, holding `source`/`track`
--- void children (also flow, for use inside them) alongside fallback
--- markup -- same "container accepts general flow children" simplification
--- as `ul`/`ol`/`table` (module doc above).
 def picture (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.element .flow "picture" children (combineAttrs "" attrs rawAttrs)
@@ -477,8 +440,6 @@ def area (areaAttrs : AreaAttrs := {}) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.voidElement .flow "area" (combineAttrs (AreaAttrs.render areaAttrs) attrs rawAttrs)
 
--- Table: flow content, flow children (see module-doc note on not
--- enforcing HTML5's stricter table content model).
 def table (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.element .flow "table" children (combineAttrs "" attrs rawAttrs)
