@@ -1,9 +1,8 @@
 # HTML
 
 A Lean 4 library for building HTML. It represents markup as typed Lean
-values instead of strings, so illegal nesting (e.g. a `<div>` inside a
-`<p>`) is a type error rather than a runtime bug, and text content is
-escaped automatically.
+values so illegal nesting (e.g. a `<div>` inside a `<p>`) is a type error
+rather than a runtime bug, and text content is escaped automatically.
 
 ## Installation
 
