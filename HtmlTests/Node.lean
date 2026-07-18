@@ -8,11 +8,10 @@ open Html
 /-- **Paired renderer-side invariant for `text`:** a `text` leaf renders to exactly
 its escaped content, with nothing else spliced in. Combined with `escape_safe`,
 a `text` leaf can never inject a raw `<`/`>` into its surrounding markup. -/
-theorem render_text_safe (s : String) :
-    Node.render (Node.text s) = escape s ∧
-      ∀ c ∈ (escape s).toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"' := by
-  refine ⟨?_, escape_safe s⟩
-  simp [Node.render, Node.text]
+theorem render_text_safe (cat : Category) (s : String) :
+    Node.render (Node.text (cat := cat) s) = escape s ∧
+      ∀ c ∈ (escape s).toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"' :=
+  ⟨Node.render_text s, escape_safe s⟩
 
 /-- **Paired renderer-side invariant for `textElement`:** the escaped content is
 always embedded between the literal opening and closing tags. Combined with
@@ -21,9 +20,8 @@ prematurely close `</tag>` or open nested markup (the RCDATA safety property). -
 theorem render_textElement_safe (cat : Category) (tag content attrsStr : String) :
     Node.render (Node.textElement cat tag content attrsStr)
       = s!"<{tag}{attrsStr}>" ++ escape content ++ s!"</{tag}>" ∧
-      ∀ c ∈ (escape content).toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"' := by
-  refine ⟨?_, escape_safe content⟩
-  simp [Node.render, Node.textElement]
+      ∀ c ∈ (escape content).toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"' :=
+  ⟨Node.render_textElement cat tag content attrsStr, escape_safe content⟩
 
 #guard Node.render (Node.element .flow "div" []) = "<div></div>"
 #guard Node.render (Node.element .flow "div" [Node.element .flow "p" []]) = "<div><p></p></div>"

@@ -124,6 +124,14 @@ category.
 Misuse can lead to XSS issues. -/
 def unsafeRaw (s : String) : Node cat := ⟨.leaf s⟩
 
+theorem render_text (s : String) : (text s : Node cat).render = escape s := by
+  simp [render, text, renderCompactInto]
+
+theorem render_textElement (cat : Category) (tag content attrsStr : String) :
+    (textElement cat tag content attrsStr).render
+      = s!"<{tag}{attrsStr}>" ++ escape content ++ s!"</{tag}>" := by
+  simp [render, textElement, renderCompactInto, toString, String.append_assoc]
+
 end Node
 
 /-- Phrasing content is always valid wherever flow content is valid. -/
