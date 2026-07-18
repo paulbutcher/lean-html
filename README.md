@@ -4,6 +4,8 @@ A Lean 4 library for building HTML. It represents markup as typed Lean
 values so illegal nesting (e.g. a `<div>` inside a `<p>`) is a type error
 rather than a runtime bug, and text content is escaped automatically.
 
+See: [Formally verified CRUD](https://paulbutcher.com/lean2.html).
+
 ## Installation
 
 Add it to your `lakefile.toml`:
@@ -12,12 +14,6 @@ Add it to your `lakefile.toml`:
 [[require]]
 name = "html"
 git = "https://github.com/paulbutcher/lean-html"
-```
-
-or `lakefile.lean`:
-
-```lean
-require html from git "https://github.com/paulbutcher/lean-html"
 ```
 
 ## Usage
