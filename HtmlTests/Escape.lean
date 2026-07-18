@@ -44,7 +44,8 @@ private theorem join_toList (l : List String) :
 /-- **The XSS-relevant safety property:** `escape`'s output never contains a raw
 (unescaped) `<`, `>`, or `"`. This is what makes double-quote-delimited,
 escaped attribute values and escaped text content safe against markup
-breakout — see `renderAttr` for the paired renderer-side invariant this
+breakout — see `renderAttr_safe`, `render_text_safe`, and
+`render_textElement_safe` for the paired renderer-side invariants this
 depends on. -/
 theorem escape_safe (s : String) : ∀ c ∈ (escape s).toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"' := by
   unfold escape String.join
@@ -56,6 +57,15 @@ theorem escape_safe (s : String) : ∀ c ∈ (escape s).toList, c ≠ '<' ∧ c 
   unfold isDangerous at h
   simp only [Bool.or_eq_false_iff, beq_eq_false_iff_ne, ne_eq] at h
   exact ⟨h.1.1, h.1.2, h.2⟩
+
+/-- **The paired renderer-side invariant:** `renderAttr` always embeds the escaped
+value between two literal `"` delimiters. Combined with `escape_safe`, this rules
+out attribute-value breakout: the value can never contain a raw `"` to close the
+attribute early, nor a raw `<`/`>` to open a new tag. -/
+theorem renderAttr_safe (name value : String) :
+    renderAttr name value = s!" {name}=\"" ++ escape value ++ "\"" ∧
+      ∀ c ∈ (escape value).toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"' :=
+  ⟨rfl, escape_safe value⟩
 
 private theorem foldl_append_eq (l : List String) :
     ∀ acc : String, l.foldl (· ++ ·) acc = acc ++ l.foldl (· ++ ·) "" := by
@@ -73,8 +83,7 @@ private theorem join_append (l1 l2 : List String) :
 
 /-- **Compositionality:** escaping two fragments and concatenating the results
 is the same as escaping their concatenation directly. No double-escaping
-and no under-escaping happens at the fragment boundary — this is the
-formal version of the "`&` must go first" ordering note on `escapeChar`. -/
+and no under-escaping happens at the fragment boundary. -/
 theorem escape_append (a b : String) : escape (a ++ b) = escape a ++ escape b := by
   unfold escape
   rw [String.toList_append, List.map_append, join_append]
