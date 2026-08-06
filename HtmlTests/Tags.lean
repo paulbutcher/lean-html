@@ -133,10 +133,10 @@ open Html
 #guard Node.render (object) = "<object></object>"
 #guard Node.render (object { data := "a.pdf" }) = "<object data=\"a.pdf\"></object>"
 #guard Node.render (video) = "<video></video>"
-#guard Node.render (video (videoAttrs := { src := "a.mp4", controls := true }))
+#guard Node.render (video (attrs := { src := "a.mp4", controls := true }))
   = "<video src=\"a.mp4\" controls></video>"
 #guard Node.render (audio) = "<audio></audio>"
-#guard Node.render (audio (audioAttrs := { src := "a.mp3", controls := true }))
+#guard Node.render (audio (attrs := { src := "a.mp3", controls := true }))
   = "<audio src=\"a.mp3\" controls></audio>"
 #guard Node.render (map { name := "sitemap" }) = "<map name=\"sitemap\"></map>"
 #guard Node.render (area) = "<area>"
@@ -194,8 +194,14 @@ example : Node .flow := p [div []]
 
 #guard Node.render (div [] (attrs := { id := "x", class_ := "y" }))
   = "<div id=\"x\" class=\"y\"></div>"
-#guard Node.render (a (linkAttrs := { href := "/x", target := "_blank" }) [Node.text "go"])
+#guard Node.render (a (attrs := { href := "/x", target := "_blank" }) [Node.text "go"])
   = "<a href=\"/x\" target=\"_blank\">go</a>"
+
+-- Element-specific attrs and global `HtmlAttrs` fields combine in one record.
+#guard Node.render (textarea "hi" { rows := "4", class_ := "message-input" })
+  = "<textarea rows=\"4\" class=\"message-input\">hi</textarea>"
+#guard Node.render (a { href := "/x", class_ := "link" } [Node.text "go"])
+  = "<a href=\"/x\" class=\"link\">go</a>"
 
 #guard Node.render (p [Node.text "Some ", del ["old"], Node.text " ", ins ["new"], Node.text " text"])
   = "<p>Some <del>old</del> <ins>new</ins> text</p>"

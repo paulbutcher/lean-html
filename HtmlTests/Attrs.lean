@@ -89,8 +89,8 @@ example := HtmlAttrs.render { id := true }
   = " src=\"a.vtt\" kind=\"subtitles\" srclang=\"en\" default"
 
 #guard IframeAttrs.render { src := "/embed" } = " src=\"/embed\""
-#guard IframeAttrs.render { src := "/embed", title := "t", width := "300", height := "150" }
-  = " src=\"/embed\" title=\"t\" width=\"300\" height=\"150\""
+#guard IframeAttrs.render { src := "/embed", width := "300", height := "150", title := "t" }
+  = " src=\"/embed\" width=\"300\" height=\"150\" title=\"t\""
 
 #guard EmbedAttrs.render {} = ""
 #guard EmbedAttrs.render { src := "a.swf", type := "application/x-shockwave-flash" }

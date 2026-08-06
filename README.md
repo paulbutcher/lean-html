@@ -40,9 +40,10 @@ def page : String :=
 `page` is now a complete `<!DOCTYPE html>` document as a `String`.
 
 - Tag functions (`div`, `p`, `a`, `img`, ...) live in the `Html`
-  namespace and mirror standard HTML element names, taking children,
-  optional typed attributes, and optional `HtmlAttrs` (`id`, `class_`,
-  `style`, `title`, `lang`, `dir`).
+  namespace and mirror standard HTML element names, taking children and
+  a single typed `attrs` record. Every such record includes the global
+  `HtmlAttrs` fields (`id`, `class_`, `style`, `title`, `lang`, `dir`)
+  alongside the element's own, e.g. `a { href := "/x", class_ := "y" }`.
 - String literals can be used directly as text content, e.g. `p [ "Hi" ]`.
 - `rawAttrs : List (String × String)` is accepted by every tag for
   attributes not otherwise covered.

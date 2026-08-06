@@ -48,12 +48,13 @@ escape hatches exist for what the typed vocabulary doesn't cover:
 2. If the element needs attributes beyond the global `HtmlAttrs` (`id`,
    `class`, `style`, `title`, `lang`, `dir`), add a typed record to
    `Html/Attrs.lean` following `AAttrs`/`ImgAttrs`/`InputAttrs`'s pattern:
-   required fields as plain (non-`Option`) fields, everything else
-   `Option _ := none`, boolean attributes rendered via `renderBoolAttr`.
+   `extends HtmlAttrs`, required fields as plain (non-`Option`) fields,
+   everything else `Option _ := none`, boolean attributes rendered via
+   `renderBoolAttr`, and its `.render` appending `HtmlAttrs.render
+   a.toHtmlAttrs` last so the inherited global fields render too.
 3. Define the tag function in `Html/Tags.lean`: `(children) (attrs :=
    {}) (rawAttrs := [])`, calling the right `Node` primitive from step 1
-   with `combineAttrs <specific-attrs-rendered> attrs rawAttrs` as the
-   attribute string.
+   with `combineAttrs <attrs-rendered> rawAttrs` as the attribute string.
 4. Add a `#guard` smoke test (minimal render output) to `HtmlTests/Tags.lean`,
    next to the other tags' tests.
 
