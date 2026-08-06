@@ -195,6 +195,8 @@ example := HtmlAttrs.render { id := true }
 #guard renderRawAttrs [("data-x", "a\"b")] = " data-x=\"a&quot;b\""
 #guard renderRawAttrs [("hx-get", "/x"), ("hx-target", "#y")] = " hx-get=\"/x\" hx-target=\"#y\""
 #guard renderRawAttrs [("evil onmouseover=\"alert(1)", "x")]
-  = " evil onmouseover=\"alert(1)=\"x\""  -- a space in the name breaks out of the tag; unchecked by design
+  = " evil_onmouseover__alert_1_=\"x\""  -- disallowed chars in the name are sanitized, not passed through
+#guard renderRawAttrs [("   ", "x")] = " ___=\"x\""  -- each disallowed char becomes its own "_"
+#guard renderRawAttrs [("", "x")] = " _=\"x\""  -- an empty name sanitizes to nothing, falls back to "_"
 
 end HtmlTests

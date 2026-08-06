@@ -18,10 +18,11 @@ private def renderOpt (name : String) : Option String → String
   | none => ""
   | some v => renderAttr name v
 
-/-- Render arbitrary `(name, value)` pairs verbatim: values escaped, names
-*not* validated. -/
+/-- Render arbitrary `(name, value)` pairs: values escaped, names sanitized
+(see `sanitizeAttrName`) so a name containing e.g. a space or `"` can't
+break out of the tag it's rendered into. -/
 def renderRawAttrs (attrs : List (String × String)) : String :=
-  String.join (attrs.map (fun (n, v) => renderAttr n v))
+  String.join (attrs.map (fun (n, v) => renderAttr (sanitizeAttrName n) v))
 
 /-- Global attributes, valid on any element. `class_` (not `class`, a
 Lean keyword) renders as the `class` attribute. Every per-element record

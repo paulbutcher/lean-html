@@ -88,4 +88,27 @@ theorem escape_append (a b : String) : escape (a ++ b) = escape a ++ escape b :=
   unfold escape
   rw [String.toList_append, List.map_append, join_append]
 
+/-- Unfolds `sanitizeAttrName`'s `let` so `split` can case on the `if` directly. -/
+private theorem sanitizeAttrName_eq (s : String) :
+    sanitizeAttrName s =
+      if (s.map sanitizeAttrNameChar).isEmpty then "_" else s.map sanitizeAttrNameChar :=
+  rfl
+
+/-- **The rawAttrs-name-relevant safety property:** `sanitizeAttrName`'s output
+consists entirely of `isAttrNameChar` characters -- no whitespace, `=`, `<`,
+`>`, or quote can survive sanitization. This is what closes the `renderRawAttrs`
+gap: an untrusted attribute name can no longer break out of the tag it's
+rendered into (compare the `renderAttr_safe`/`escape_safe` pair, which gives
+the same guarantee for attribute *values*). -/
+theorem sanitizeAttrName_safe (s : String) :
+    ∀ c ∈ (sanitizeAttrName s).toList, isAttrNameChar c = true := by
+  rw [sanitizeAttrName_eq]
+  split
+  · decide
+  · rw [String.toList_map]
+    intro c hc
+    obtain ⟨c', _, heq⟩ := List.mem_map.mp hc
+    simp only [sanitizeAttrNameChar] at heq
+    split at heq <;> subst heq <;> first | assumption | decide
+
 end HtmlTests
