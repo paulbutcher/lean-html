@@ -2,14 +2,28 @@ import Html.Escape
 
 namespace Html
 
-/-- HTML content-model category. Only `flow` and `phrasing` are currently
-modeled.
-Phrasing content is a subset of flow content (`Coe` below), which is what
-lets a phrasing tag like `span` appear directly among a flow element's
-children. -/
+/-- HTML content-model category. In addition to `flow`/`phrasing`, this
+also carries enough structure-only categories to keep list, table, and
+`<select>` children from being interchangeable flow content, which they
+aren't in real HTML5: a `<li>`, `<tr>`, or `<option>` is only valid inside
+its specific parent, not anywhere flow/phrasing content is. What's *not*
+modeled is ordering within a parent (e.g. HTML5 wants `<caption>` before
+`<colgroup>` before `<thead>` inside `<table>`) -- these categories only
+constrain which tags are valid children, not their sequence.
+Phrasing content is a subset of flow content, a bare `<option>` is a valid
+`<select>` child, and a bare `<tr>` is a valid `<table>` child (the `Coe`
+instances below encode exactly that), which is what lets those narrower
+tags appear directly among their wider container's children. -/
 inductive Category where
   | flow
   | phrasing
+  | listItem
+  | option
+  | selectChild
+  | tableColumn
+  | tableCell
+  | tableRow
+  | tableSection
 
 /-- Internal tree representation. -/
 private inductive Repr where
@@ -84,10 +98,14 @@ accepts phrasing children (HTML5 disallows a `<div>` directly inside a
 `<p>`), which this makes a type error rather than a spec violation caught
 only at runtime. `attrsStr` is the pre-rendered, already-escaped attribute
 string (e.g. from `HtmlAttrs.render` + `renderRawAttrs`, built by the tag
-functions in `Html/Tags.lean`), spliced directly after the tag name. -/
+functions in `Html/Tags.lean`), spliced directly after the tag name.
+Children are pretty-printed one-per-line (block layout) unless `contentCat`
+is `phrasing` -- true inline text-level content -- so the structure-only
+categories (`listItem`, `tableRow`, ...) still get block layout like flow
+content does, and only genuine prose stays inline. -/
 def elementOf (cat contentCat : Category) (tag : String)
     (children : List (Node contentCat)) (attrsStr : String := "") : Node cat :=
-  ⟨.elem tag attrsStr (children.map (·.repr)) (contentCat matches .flow)⟩
+  ⟨.elem tag attrsStr (children.map (·.repr)) (!(contentCat matches .phrasing))⟩
 
 /-- A normal element whose children are the *same* category as the
 element itself (e.g. `div`: a flow element containing flow content). -/
@@ -136,6 +154,16 @@ end Node
 
 /-- Phrasing content is always valid wherever flow content is valid. -/
 instance : Coe (Node .phrasing) (Node .flow) where
+  coe n := ⟨n.repr⟩
+
+/-- A bare `<option>` (without a wrapping `<optgroup>`) is a valid direct
+child of `<select>`. -/
+instance : Coe (Node .option) (Node .selectChild) where
+  coe n := ⟨n.repr⟩
+
+/-- A bare `<tr>` (without a wrapping `<thead>`/`<tbody>`/`<tfoot>`) is a
+valid direct child of `<table>`. -/
+instance : Coe (Node .tableRow) (Node .tableSection) where
   coe n := ⟨n.repr⟩
 
 end Html

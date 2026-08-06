@@ -168,6 +168,25 @@ open Html
 #guard Node.render (ul [li [Node.text "one"], li [Node.text "two"]])
   = "<ul><li>one</li><li>two</li></ul>"
 
+-- Content-model composition: table sections/rows/cells, and a bare
+-- `<tr>` coercing directly into `table`'s children (no `<tbody>` needed).
+#guard Node.render (table [
+    caption [Node.text "Cap"],
+    colgroup [col],
+    thead [tr [th [Node.text "H"]]],
+    tbody [tr [td [Node.text "1"], td [Node.text "2"]]],
+    tfoot [tr [td [Node.text "F"]]]
+  ]) = "<table><caption>Cap</caption><colgroup><col></colgroup>" ++
+    "<thead><tr><th>H</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody>" ++
+    "<tfoot><tr><td>F</td></tr></tfoot></table>"
+#guard Node.render (table [tr [td []]]) = "<table><tr><td></td></tr></table>"
+
+-- `<option>`/`<optgroup>` as `<select>`/`<datalist>` children.
+#guard Node.render (select [option "a", optgroup { label := "g" } [option "b", option "c"]])
+  = "<select><option>a</option><optgroup label=\"g\"><option>b</option><option>c</option></optgroup></select>"
+#guard Node.render (datalist [option "a", option "b"])
+  = "<datalist><option>a</option><option>b</option></datalist>"
+
 -- Negative-compile regression: `p` only accepts phrasing children, so a
 -- `<div>` (flow) directly inside a `<p>` must fail to typecheck.
 /--
@@ -183,10 +202,67 @@ in the application
 #guard_msgs in
 example : Node .flow := p [div []]
 
+-- Negative-compile regression: `ul` only accepts `<li>` children, so a
+-- `<div>` directly inside a `<ul>` must fail to typecheck.
+/--
+error: Application type mismatch: The argument
+  div []
+has type
+  Node Category.flow
+but is expected to have type
+  Node Category.listItem
+in the application
+  List.cons (div [])
+-/
+#guard_msgs in
+example : Node .flow := ul [div []]
+
+-- Negative-compile regression: `select` only accepts `<option>`/`<optgroup>`
+-- children, so a `<button>` (phrasing) directly inside a `<select>` must
+-- fail to typecheck.
+/--
+error: Application type mismatch: The argument
+  button []
+has type
+  Node Category.phrasing
+but is expected to have type
+  Node Category.selectChild
+in the application
+  List.cons (button [])
+-/
+#guard_msgs in
+example : Node .phrasing := select [button []]
+
+-- Negative-compile regression: `tr` only accepts `<td>`/`<th>` children, so
+-- a `<div>` directly inside a `<tr>` must fail to typecheck.
+/--
+error: Application type mismatch: The argument
+  div []
+has type
+  Node Category.flow
+but is expected to have type
+  Node Category.tableCell
+in the application
+  List.cons (div [])
+-/
+#guard_msgs in
+example : Node .tableRow := tr [div []]
+
 #guard Node.renderPretty (div [p ["Hello, "], strong ["world"]])
   = "<div>\n  <p>Hello, </p>\n  <strong>world</strong>\n</div>"
 #guard Node.renderPretty (ul [li [Node.text "one"], li [Node.text "two"]])
   = "<ul>\n  <li>one</li>\n  <li>two</li>\n</ul>"
+
+-- Structure-only categories (table rows/cells, select options) get block
+-- layout when pretty-printed, same as flow content -- only genuine
+-- phrasing content stays inline.
+#guard Node.renderPretty (table [
+    thead [tr [th [Node.text "H"]]],
+    tbody [tr [td [Node.text "1"], td [Node.text "2"]]]
+  ]) = "<table>\n  <thead>\n    <tr>\n      <th>H</th>\n    </tr>\n  </thead>\n" ++
+    "  <tbody>\n    <tr>\n      <td>1</td>\n      <td>2</td>\n    </tr>\n  </tbody>\n</table>"
+#guard Node.renderPretty (select [option "a", option "b"])
+  = "<select>\n  <option>a</option>\n  <option>b</option>\n</select>"
 #guard Node.renderPretty (div [(pre [Node.text "line1\n  line2"] : Node .flow)])
   = "<div>\n  <pre>line1\n  line2</pre>\n</div>"
 #guard Node.renderPretty (div [(textarea "line1\nline2  spaced" : Node .flow)])
