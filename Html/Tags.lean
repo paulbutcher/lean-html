@@ -11,14 +11,14 @@ Scope notes:
 - `html` is **not** defined here -- it's inseparable from the
   `<!DOCTYPE html>` prefix that makes it a document at all, so it stays
   `Html.document`'s sole responsibility rather than a general-purpose tag.
-- Only `AAttrs`, `ImgAttrs`, `InputAttrs` get dedicated typed attribute
-  records. Every other tag below takes plain `HtmlAttrs` (global
-  attributes only) plus `rawAttrs` -- element-specific attributes beyond
-  those three examples (`form`'s `action`/`method`, `button`'s `disabled`,
-  `select`'s `multiple`, `label`'s `for`, ...) are not modeled as typed
-  fields yet; use `rawAttrs` for them. This keeps the attribute vocabulary
-  consistent rather than ad hoc per tag; more typed records can be added
-  later following `AAttrs`/`ImgAttrs`/`InputAttrs`'s pattern.
+- Tags with well-known attributes beyond the global set get a dedicated
+  `<Tag>Attrs` record in `Html/Attrs.lean` (`AAttrs`, `ImgAttrs`,
+  `InputAttrs`, and ~35 others). Tags with nothing beyond the global set
+  -- `div`, `p`, `span`, `legend`, `summary`, `datalist`, and most other
+  containers/text-level elements -- take plain `HtmlAttrs` plus
+  `rawAttrs`, which also covers any attribute not (yet) modeled as a
+  typed field on a tag that does have a record. More typed records can be
+  added later following the existing pattern.
 - Only `flow`/`phrasing` are modeled (Phase 0), so container elements with
   a stricter HTML5 content model than "some flow content" -- `ul`/`ol`
   (only `<li>`), `table`/`thead`/`tbody`/`tr` (only specific row/cell
@@ -156,13 +156,13 @@ def ul (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.element .flow "ul" children (combineAttrs "" attrs rawAttrs)
 
-def ol (children : List (Node .flow)) (attrs : HtmlAttrs := {})
+def ol (children : List (Node .flow)) (olAttrs : OlAttrs := {}) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "ol" children (combineAttrs "" attrs rawAttrs)
+  Node.element .flow "ol" children (combineAttrs (OlAttrs.render olAttrs) attrs rawAttrs)
 
-def li (children : List (Node .flow)) (attrs : HtmlAttrs := {})
+def li (children : List (Node .flow)) (liAttrs : LiAttrs := {}) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "li" children (combineAttrs "" attrs rawAttrs)
+  Node.element .flow "li" children (combineAttrs (LiAttrs.render liAttrs) attrs rawAttrs)
 
 def menu (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
@@ -180,9 +180,9 @@ def dd (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.element .flow "dd" children (combineAttrs "" attrs rawAttrs)
 
-def blockquote (children : List (Node .flow)) (attrs : HtmlAttrs := {})
-    (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "blockquote" children (combineAttrs "" attrs rawAttrs)
+def blockquote (children : List (Node .flow)) (blockquoteAttrs : BlockquoteAttrs := {})
+    (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node .flow :=
+  Node.element .flow "blockquote" children (combineAttrs (BlockquoteAttrs.render blockquoteAttrs) attrs rawAttrs)
 
 def figure (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
@@ -325,9 +325,9 @@ def del (children : List (Node cat)) (insAttrs : InsDelAttrs := {}) (attrs : Htm
 def br (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node .phrasing :=
   Node.voidElement .phrasing "br" (combineAttrs "" attrs rawAttrs)
 
-def form (children : List (Node .flow)) (attrs : HtmlAttrs := {})
+def form (children : List (Node .flow)) (formAttrs : FormAttrs := {}) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "form" children (combineAttrs "" attrs rawAttrs)
+  Node.element .flow "form" children (combineAttrs (FormAttrs.render formAttrs) attrs rawAttrs)
 
 def fieldset (children : List (Node .flow)) (fieldsetAttrs : FieldsetAttrs := {})
     (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node .flow :=
@@ -341,21 +341,21 @@ def input (inputAttrs : InputAttrs := {}) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
   Node.voidElement .phrasing "input" (combineAttrs (InputAttrs.render inputAttrs) attrs rawAttrs)
 
-def label (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
-    (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "label" children (combineAttrs "" attrs rawAttrs)
+def label (children : List (Node .phrasing)) (labelAttrs : LabelAttrs := {})
+    (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node .phrasing :=
+  Node.element .phrasing "label" children (combineAttrs (LabelAttrs.render labelAttrs) attrs rawAttrs)
 
-def textarea (content : String) (attrs : HtmlAttrs := {})
+def textarea (content : String) (textareaAttrs : TextareaAttrs := {}) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.textElement .phrasing "textarea" content (combineAttrs "" attrs rawAttrs)
+  Node.textElement .phrasing "textarea" content (combineAttrs (TextareaAttrs.render textareaAttrs) attrs rawAttrs)
 
-def option (label : String) (attrs : HtmlAttrs := {})
+def option (label : String) (optionAttrs : OptionAttrs := {}) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.textElement .phrasing "option" label (combineAttrs "" attrs rawAttrs)
+  Node.textElement .phrasing "option" label (combineAttrs (OptionAttrs.render optionAttrs) attrs rawAttrs)
 
-def select (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
-    (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "select" children (combineAttrs "" attrs rawAttrs)
+def select (children : List (Node .phrasing)) (selectAttrs : SelectAttrs := {})
+    (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node .phrasing :=
+  Node.element .phrasing "select" children (combineAttrs (SelectAttrs.render selectAttrs) attrs rawAttrs)
 
 def datalist (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
@@ -365,9 +365,9 @@ def optgroup (optgroupAttrs : OptgroupAttrs) (children : List (Node .phrasing))
     (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node .phrasing :=
   Node.element .phrasing "optgroup" children (combineAttrs (OptgroupAttrs.render optgroupAttrs) attrs rawAttrs)
 
-def button (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
-    (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "button" children (combineAttrs "" attrs rawAttrs)
+def button (children : List (Node .phrasing)) (buttonAttrs : ButtonAttrs := {})
+    (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node .phrasing :=
+  Node.element .phrasing "button" children (combineAttrs (ButtonAttrs.render buttonAttrs) attrs rawAttrs)
 
 def output (children : List (Node .phrasing)) (outputAttrs : OutputAttrs := {})
     (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node .phrasing :=
@@ -472,12 +472,12 @@ def tr (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.element .flow "tr" children (combineAttrs "" attrs rawAttrs)
 
-def th (children : List (Node .flow)) (attrs : HtmlAttrs := {})
+def th (children : List (Node .flow)) (thAttrs : ThAttrs := {}) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "th" children (combineAttrs "" attrs rawAttrs)
+  Node.element .flow "th" children (combineAttrs (ThAttrs.render thAttrs) attrs rawAttrs)
 
-def td (children : List (Node .flow)) (attrs : HtmlAttrs := {})
+def td (children : List (Node .flow)) (tdAttrs : TdAttrs := {}) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "td" children (combineAttrs "" attrs rawAttrs)
+  Node.element .flow "td" children (combineAttrs (TdAttrs.render tdAttrs) attrs rawAttrs)
 
 end Html

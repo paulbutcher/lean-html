@@ -118,6 +118,77 @@ example := HtmlAttrs.render { id := true }
 #guard InputAttrs.render { checked := true, required := true } = " type=\"text\" checked required"
 #guard InputAttrs.render { name := "q", value := "v" } = " type=\"text\" name=\"q\" value=\"v\""
 
+#guard OlAttrs.render {} = ""
+#guard OlAttrs.render { reversed := true } = " reversed"
+#guard OlAttrs.render { start := "5" } = " start=\"5\""
+#guard OlAttrs.render { type := "a" } = " type=\"a\""
+#guard OlAttrs.render { reversed := true, start := "5", type := "a" }
+  = " reversed start=\"5\" type=\"a\""
+
+#guard LiAttrs.render {} = ""
+#guard LiAttrs.render { value := "3" } = " value=\"3\""
+
+#guard BlockquoteAttrs.render {} = ""
+#guard BlockquoteAttrs.render { cite := "https://example.com" } = " cite=\"https://example.com\""
+
+#guard FormAttrs.render {} = ""
+#guard FormAttrs.render { action := "/submit" } = " action=\"/submit\""
+#guard FormAttrs.render { method := "post" } = " method=\"post\""
+#guard FormAttrs.render { action := "/submit", method := "post" }
+  = " action=\"/submit\" method=\"post\""
+
+#guard LabelAttrs.render {} = ""
+#guard LabelAttrs.render { for_ := "name" } = " for=\"name\""
+
+#guard TextareaAttrs.render {} = ""
+#guard TextareaAttrs.render { name := "bio" } = " name=\"bio\""
+#guard TextareaAttrs.render { placeholder := "Tell us more" } = " placeholder=\"Tell us more\""
+#guard TextareaAttrs.render { rows := "4" } = " rows=\"4\""
+#guard TextareaAttrs.render { cols := "50" } = " cols=\"50\""
+#guard TextareaAttrs.render { disabled := true } = " disabled"
+#guard TextareaAttrs.render { readonly := true } = " readonly"
+#guard TextareaAttrs.render { required := true } = " required"
+#guard TextareaAttrs.render { autofocus := true } = " autofocus"
+#guard TextareaAttrs.render { name := "bio", placeholder := "Tell us more", rows := "4", cols := "50", disabled := true, readonly := true, required := true, autofocus := true }
+  = " name=\"bio\" placeholder=\"Tell us more\" rows=\"4\" cols=\"50\" disabled readonly required autofocus"
+
+#guard OptionAttrs.render {} = ""
+#guard OptionAttrs.render { value := "1" } = " value=\"1\""
+#guard OptionAttrs.render { selected := true } = " selected"
+#guard OptionAttrs.render { disabled := true } = " disabled"
+#guard OptionAttrs.render { label := "One" } = " label=\"One\""
+#guard OptionAttrs.render { value := "1", selected := true, disabled := true, label := "One" }
+  = " value=\"1\" selected disabled label=\"One\""
+
+#guard SelectAttrs.render {} = ""
+#guard SelectAttrs.render { name := "color" } = " name=\"color\""
+#guard SelectAttrs.render { multiple := true } = " multiple"
+#guard SelectAttrs.render { disabled := true } = " disabled"
+#guard SelectAttrs.render { required := true } = " required"
+#guard SelectAttrs.render { size := "4" } = " size=\"4\""
+#guard SelectAttrs.render { name := "color", multiple := true, disabled := true, required := true, size := "4" }
+  = " name=\"color\" multiple disabled required size=\"4\""
+
+#guard ButtonAttrs.render {} = " type=\"submit\""
+#guard ButtonAttrs.render { type := "reset" } = " type=\"reset\""
+#guard ButtonAttrs.render { name := "action" } = " type=\"submit\" name=\"action\""
+#guard ButtonAttrs.render { value := "go" } = " type=\"submit\" value=\"go\""
+#guard ButtonAttrs.render { disabled := true } = " type=\"submit\" disabled"
+#guard ButtonAttrs.render { type := "reset", name := "action", value := "go", disabled := true }
+  = " type=\"reset\" name=\"action\" value=\"go\" disabled"
+
+#guard ThAttrs.render {} = ""
+#guard ThAttrs.render { colspan := "2" } = " colspan=\"2\""
+#guard ThAttrs.render { rowspan := "3" } = " rowspan=\"3\""
+#guard ThAttrs.render { scope := "col" } = " scope=\"col\""
+#guard ThAttrs.render { colspan := "2", rowspan := "3", scope := "col" }
+  = " colspan=\"2\" rowspan=\"3\" scope=\"col\""
+
+#guard TdAttrs.render {} = ""
+#guard TdAttrs.render { colspan := "2" } = " colspan=\"2\""
+#guard TdAttrs.render { rowspan := "3" } = " rowspan=\"3\""
+#guard TdAttrs.render { colspan := "2", rowspan := "3" } = " colspan=\"2\" rowspan=\"3\""
+
 #guard renderBoolAttr "disabled" true = " disabled"
 #guard renderBoolAttr "disabled" false = ""
 

@@ -309,4 +309,112 @@ def AreaAttrs.render (a : AreaAttrs) : String :=
   renderOpt "href" a.href ++ renderOpt "alt" a.alt ++ renderOpt "shape" a.shape ++
     renderOpt "coords" a.coords ++ renderOpt "target" a.target
 
+/-- `<ol>` -/
+structure OlAttrs where
+  reversed : Bool := false
+  start : Option String := none
+  type : Option String := none
+
+def OlAttrs.render (a : OlAttrs) : String :=
+  renderBoolAttr "reversed" a.reversed ++ renderOpt "start" a.start ++ renderOpt "type" a.type
+
+/-- `<li>` -/
+structure LiAttrs where
+  value : Option String := none
+
+def LiAttrs.render (a : LiAttrs) : String :=
+  renderOpt "value" a.value
+
+/-- `<blockquote>` -/
+structure BlockquoteAttrs where
+  cite : Option String := none
+
+def BlockquoteAttrs.render (a : BlockquoteAttrs) : String :=
+  renderOpt "cite" a.cite
+
+/-- `<form>` -/
+structure FormAttrs where
+  action : Option String := none
+  method : Option String := none
+
+def FormAttrs.render (a : FormAttrs) : String :=
+  renderOpt "action" a.action ++ renderOpt "method" a.method
+
+/-- `<label>`
+`for_` (trailing underscore -- `for` is a Lean keyword). -/
+structure LabelAttrs where
+  for_ : Option String := none
+
+def LabelAttrs.render (a : LabelAttrs) : String :=
+  renderOpt "for" a.for_
+
+/-- `<textarea>` -/
+structure TextareaAttrs where
+  name : Option String := none
+  placeholder : Option String := none
+  rows : Option String := none
+  cols : Option String := none
+  disabled : Bool := false
+  readonly : Bool := false
+  required : Bool := false
+  autofocus : Bool := false
+
+def TextareaAttrs.render (a : TextareaAttrs) : String :=
+  renderOpt "name" a.name ++ renderOpt "placeholder" a.placeholder ++ renderOpt "rows" a.rows ++
+    renderOpt "cols" a.cols ++ renderBoolAttr "disabled" a.disabled ++
+    renderBoolAttr "readonly" a.readonly ++ renderBoolAttr "required" a.required ++
+    renderBoolAttr "autofocus" a.autofocus
+
+/-- `<option>` -/
+structure OptionAttrs where
+  value : Option String := none
+  selected : Bool := false
+  disabled : Bool := false
+  label : Option String := none
+
+def OptionAttrs.render (a : OptionAttrs) : String :=
+  renderOpt "value" a.value ++ renderBoolAttr "selected" a.selected ++
+    renderBoolAttr "disabled" a.disabled ++ renderOpt "label" a.label
+
+/-- `<select>` -/
+structure SelectAttrs where
+  name : Option String := none
+  multiple : Bool := false
+  disabled : Bool := false
+  required : Bool := false
+  size : Option String := none
+
+def SelectAttrs.render (a : SelectAttrs) : String :=
+  renderOpt "name" a.name ++ renderBoolAttr "multiple" a.multiple ++
+    renderBoolAttr "disabled" a.disabled ++ renderBoolAttr "required" a.required ++
+    renderOpt "size" a.size
+
+/-- `<button>` -/
+structure ButtonAttrs where
+  type : String := "submit"
+  name : Option String := none
+  value : Option String := none
+  disabled : Bool := false
+
+def ButtonAttrs.render (a : ButtonAttrs) : String :=
+  renderAttr "type" a.type ++ renderOpt "name" a.name ++ renderOpt "value" a.value ++
+    renderBoolAttr "disabled" a.disabled
+
+/-- `<th>` -/
+structure ThAttrs where
+  colspan : Option String := none
+  rowspan : Option String := none
+  scope : Option String := none
+
+def ThAttrs.render (a : ThAttrs) : String :=
+  renderOpt "colspan" a.colspan ++ renderOpt "rowspan" a.rowspan ++ renderOpt "scope" a.scope
+
+/-- `<td>` -/
+structure TdAttrs where
+  colspan : Option String := none
+  rowspan : Option String := none
+
+def TdAttrs.render (a : TdAttrs) : String :=
+  renderOpt "colspan" a.colspan ++ renderOpt "rowspan" a.rowspan
+
 end Html

@@ -26,12 +26,16 @@ open Html
 #guard Node.render (h6 []) = "<h6></h6>"
 #guard Node.render (ul []) = "<ul></ul>"
 #guard Node.render (ol []) = "<ol></ol>"
+#guard Node.render (ol [] { reversed := true, start := "5" }) = "<ol reversed start=\"5\"></ol>"
 #guard Node.render (li []) = "<li></li>"
+#guard Node.render (li [] { value := "3" }) = "<li value=\"3\"></li>"
 #guard Node.render (menu []) = "<menu></menu>"
 #guard Node.render (dl []) = "<dl></dl>"
 #guard Node.render (dt []) = "<dt></dt>"
 #guard Node.render (dd []) = "<dd></dd>"
 #guard Node.render (blockquote []) = "<blockquote></blockquote>"
+#guard Node.render (blockquote [] { cite := "https://example.com" })
+  = "<blockquote cite=\"https://example.com\"></blockquote>"
 #guard Node.render (figure []) = "<figure></figure>"
 #guard Node.render (figcaption []) = "<figcaption></figcaption>"
 #guard Node.render (pre []) = "<pre></pre>"
@@ -80,17 +84,28 @@ open Html
 #guard Node.render (del (cat := .phrasing) []) = "<del></del>"
 #guard Node.render (br) = "<br>"
 #guard Node.render (form []) = "<form></form>"
+#guard Node.render (form [] { action := "/submit", method := "post" })
+  = "<form action=\"/submit\" method=\"post\"></form>"
 #guard Node.render (fieldset []) = "<fieldset></fieldset>"
 #guard Node.render (fieldset [] { disabled := true }) = "<fieldset disabled></fieldset>"
 #guard Node.render (legend []) = "<legend></legend>"
 #guard Node.render (input) = "<input type=\"text\">"
 #guard Node.render (label []) = "<label></label>"
+#guard Node.render (label [] { for_ := "name" }) = "<label for=\"name\"></label>"
 #guard Node.render (textarea "hi") = "<textarea>hi</textarea>"
+#guard Node.render (textarea "hi" { rows := "4", cols := "50" })
+  = "<textarea rows=\"4\" cols=\"50\">hi</textarea>"
 #guard Node.render (option "hi") = "<option>hi</option>"
+#guard Node.render (option "hi" { value := "1", selected := true })
+  = "<option value=\"1\" selected>hi</option>"
 #guard Node.render (select []) = "<select></select>"
+#guard Node.render (select [] { name := "color", multiple := true })
+  = "<select name=\"color\" multiple></select>"
 #guard Node.render (datalist []) = "<datalist></datalist>"
 #guard Node.render (optgroup { label := "Fruit" } []) = "<optgroup label=\"Fruit\"></optgroup>"
-#guard Node.render (button []) = "<button></button>"
+#guard Node.render (button []) = "<button type=\"submit\"></button>"
+#guard Node.render (button [] { type := "reset", disabled := true })
+  = "<button type=\"reset\" disabled></button>"
 #guard Node.render (output []) = "<output></output>"
 #guard Node.render (output [] { for_ := "a b", name := "result" })
   = "<output for=\"a b\" name=\"result\"></output>"
@@ -136,7 +151,9 @@ open Html
 #guard Node.render (tbody []) = "<tbody></tbody>"
 #guard Node.render (tr []) = "<tr></tr>"
 #guard Node.render (th []) = "<th></th>"
+#guard Node.render (th [] { colspan := "2", scope := "col" }) = "<th colspan=\"2\" scope=\"col\"></th>"
 #guard Node.render (td []) = "<td></td>"
+#guard Node.render (td [] { colspan := "2", rowspan := "3" }) = "<td colspan=\"2\" rowspan=\"3\"></td>"
 
 -- Composition smoke tests: nesting, phrasing coercion into flow, text
 -- leaves, attributes, rawAttrs, and unsafeRaw all working together.
