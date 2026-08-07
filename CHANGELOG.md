@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0] - 2026-08-07
+
+* `Node.render_wellFormed` and the escaping-safety proofs it depends on
+  (`escape_safe`, `Attrs.render_safe`, ...) are now part of the public
+  `Html` API instead of living in test code, so downstream packages can
+  cite them directly
+
 ## [0.4.0] - 2026-08-07
 
 * Formal proof that rendered HTML is always well-formed (`Node.render_wellFormed`)
