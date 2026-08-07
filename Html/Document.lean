@@ -10,10 +10,8 @@ namespace Html
 `unit` is the string repeated per indentation level (default two spaces) -/
 def document (children : List (Node .flow))
     (lang : Option String := none) (pretty : Bool := false) (unit : String := "  ") : String :=
-  let attrsStr := match lang with
-    | some l => renderAttr "lang" l
-    | none => ""
-  let htmlNode : Node .flow := Node.element .flow "html" children attrsStr
+  let attrs : Attrs := optAttr "lang" lang
+  let htmlNode : Node .flow := Node.element .flow "html" children attrs
   if pretty then "<!DOCTYPE html>\n" ++ Node.renderPretty htmlNode unit
   else "<!DOCTYPE html>" ++ Node.render htmlNode
 

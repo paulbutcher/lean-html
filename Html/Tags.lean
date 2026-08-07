@@ -32,8 +32,8 @@ Scope notes:
 
 namespace Html
 
-private def combineAttrs (specific : String) (rawAttrs : List (String × String)) : String :=
-  specific ++ renderRawAttrs rawAttrs
+private def combineAttrs (specific : Attrs) (rawAttrs : List (String × String)) : Attrs :=
+  specific ++ rawAttrs.map fun (n, v) => .value n v
 
 -- Structure: flow content, flow children.
 def div (children : List (Node .flow)) (attrs : HtmlAttrs := {})

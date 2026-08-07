@@ -1,8 +1,11 @@
 # HTML
 
 A Lean 4 library for building HTML. It represents markup as typed Lean
-values so illegal nesting (e.g. a `<div>` inside a `<p>`) is a type error
-rather than a runtime bug, and text content is escaped automatically.
+values so illegal nesting (e.g. a `<div>` inside a `<p>`, or a `<div>`
+inside a `<ul>`) is a type error rather than a runtime bug, and text
+content is escaped automatically. `Node.render_wellFormed` proves that,
+as long as you don't reach for `Node.unsafeRaw`, the HTML this library
+produces is always well-formed.
 
 See: [Formally verified CRUD](https://paulbutcher.com/lean2.html).
 

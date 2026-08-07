@@ -17,11 +17,36 @@ theorem render_text_safe (cat : Category) (s : String) :
 always embedded between the literal opening and closing tags. Combined with
 `escape_safe`, the content can never contain a raw `<`/`>`, so it can't
 prematurely close `</tag>` or open nested markup (the RCDATA safety property). -/
-theorem render_textElement_safe (cat : Category) (tag content attrsStr : String) :
-    Node.render (Node.textElement cat tag content attrsStr)
-      = s!"<{tag}{attrsStr}>" ++ escape content ++ s!"</{tag}>" ∧
+theorem render_textElement_safe (cat : Category) (tag content : String) (attrs : Attrs) :
+    Node.render (Node.textElement cat tag content attrs)
+      = s!"<{tag}{Attrs.render attrs}>" ++ escape content ++ s!"</{tag}>" ∧
       ∀ c ∈ (escape content).toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"' :=
-  ⟨Node.render_textElement cat tag content attrsStr, escape_safe content⟩
+  ⟨Node.render_textElement cat tag content attrs, escape_safe content⟩
+
+-- **Demonstration of `render_wellFormed`:** a concrete tree, built purely from
+-- the typed constructors (no `unsafeRaw`), is `WellFormed` by chaining
+-- `element_wellFormed`/`text_wellFormed` over its shape -- and `render_wellFormed`
+-- then turns that into a `WellFormedHtml` guarantee for the rendered string.
+-- Real tag-function trees (`div [...]`, `p [...]`, ...) compose the same way,
+-- since every tag function bottoms out in exactly these same primitives.
+example : Node.WellFormed
+    (Node.element .flow "div" [Node.text "hi", Node.element .flow "p" ([] : List (Node .flow))]) := by
+  apply Node.element_wellFormed
+  intro c hc
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hc
+  rcases hc with hc | hc <;> subst hc
+  · exact Node.text_wellFormed "hi"
+  · exact Node.element_wellFormed .flow "p" [] [] (by simp)
+
+example : WellFormedHtml (Node.render
+    (Node.element .flow "div" [Node.text "hi", Node.element .flow "p" ([] : List (Node .flow))])) :=
+  Node.render_wellFormed _ (by
+    apply Node.element_wellFormed
+    intro c hc
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hc
+    rcases hc with hc | hc <;> subst hc
+    · exact Node.text_wellFormed "hi"
+    · exact Node.element_wellFormed .flow "p" [] [] (by simp))
 
 #guard Node.render (Node.element .flow "div" []) = "<div></div>"
 #guard Node.render (Node.element .flow "div" [Node.element .flow "p" []]) = "<div><p></p></div>"
