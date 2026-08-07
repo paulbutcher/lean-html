@@ -40,4 +40,9 @@ open Html
 #guard document [head [], body []] (pretty := true) (unit := "    ")
   = "<!DOCTYPE html>\n<html>\n    <head></head>\n    <body></body>\n</html>"
 
+#guard document [head [meta_ [("charset", "utf-8")]], body []] (selfClosingVoid := true)
+  = "<!DOCTYPE html><html><head><meta charset=\"utf-8\" /></head><body></body></html>"
+#guard document [head [], body [p [Node.text "hi"]]] (pretty := true) (selfClosingVoid := true)
+  = "<!DOCTYPE html>\n<html>\n  <head></head>\n  <body>\n    <p>hi</p>\n  </body>\n</html>"
+
 end HtmlTests

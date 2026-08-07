@@ -49,30 +49,38 @@ structure Node (cat : Category) where
 
 namespace Node
 
-def renderCompactInto : Repr → String → String
+/-- `selfClosingVoid` selects XHTML-style void tags (`<br />`) over the
+default HTML5 style (`<br>`) -- a whole-document serialization convention,
+not a per-tag choice, so it's a render-time parameter rather than something
+recorded on `Repr.void` itself. -/
+def renderCompactInto (selfClosingVoid : Bool) : Repr → String → String
   | .leaf s, acc => acc ++ s
-  | .void tag attrsStr, acc => acc ++ s!"<{tag}{attrsStr}>"
+  | .void tag attrsStr, acc =>
+    acc ++ (if selfClosingVoid then s!"<{tag}{attrsStr} />" else s!"<{tag}{attrsStr}>")
   | .rawText tag attrsStr content, acc => acc ++ s!"<{tag}{attrsStr}>{content}</{tag}>"
   | .elem tag attrsStr children _, acc =>
     let acc := acc ++ s!"<{tag}{attrsStr}>"
-    let acc := children.foldl (fun acc c => renderCompactInto c acc) acc
+    let acc := children.foldl (fun acc c => renderCompactInto selfClosingVoid c acc) acc
     acc ++ s!"</{tag}>"
 
 /-- Render a node to an HTML string. -/
-def render (n : Node cat) : String := renderCompactInto n.repr ""
+def render (n : Node cat) (selfClosingVoid : Bool := false) : String :=
+  renderCompactInto selfClosingVoid n.repr ""
 
 private def indent (depth : Nat) (unit : String) : String :=
   String.join (List.replicate depth unit)
 
-private def renderPrettyInto (unit : String) (r : Repr) (depth : Nat) (acc : String) : String :=
+private def renderPrettyInto (unit : String) (selfClosingVoid : Bool) (r : Repr) (depth : Nat)
+    (acc : String) : String :=
   match r with
   | .leaf s => acc ++ s
-  | .void tag attrsStr => acc ++ s!"<{tag}{attrsStr}>"
+  | .void tag attrsStr =>
+    acc ++ (if selfClosingVoid then s!"<{tag}{attrsStr} />" else s!"<{tag}{attrsStr}>")
   | .rawText tag attrsStr content => acc ++ s!"<{tag}{attrsStr}>{content}</{tag}>"
   | .elem tag attrsStr children false =>
     -- Inline layout (phrasing children): identical to compact rendering.
     let acc := acc ++ s!"<{tag}{attrsStr}>"
-    let acc := children.foldl (fun acc c => renderPrettyInto unit c depth acc) acc
+    let acc := children.foldl (fun acc c => renderPrettyInto unit selfClosingVoid c depth acc) acc
     acc ++ s!"</{tag}>"
   | .elem tag attrsStr [] true =>
     acc ++ s!"<{tag}{attrsStr}></{tag}>"
@@ -81,21 +89,21 @@ private def renderPrettyInto (unit : String) (r : Repr) (depth : Nat) (acc : Str
     acc ++ s!"<{tag}{attrsStr}>{s}</{tag}>"
   | .elem tag attrsStr [c] true =>
     let acc := acc ++ s!"<{tag}{attrsStr}>\n" ++ indent (depth + 1) unit
-    let acc := renderPrettyInto unit c (depth + 1) acc
+    let acc := renderPrettyInto unit selfClosingVoid c (depth + 1) acc
     acc ++ "\n" ++ indent depth unit ++ s!"</{tag}>"
   | .elem tag attrsStr (c :: cs) true =>
     -- Block layout (flow children), more than one: one child per line.
     let acc := acc ++ s!"<{tag}{attrsStr}>\n" ++ indent (depth + 1) unit
-    let acc := renderPrettyInto unit c (depth + 1) acc
+    let acc := renderPrettyInto unit selfClosingVoid c (depth + 1) acc
     let acc := cs.foldl (fun acc c =>
-      renderPrettyInto unit c (depth + 1) (acc ++ "\n" ++ indent (depth + 1) unit)) acc
+      renderPrettyInto unit selfClosingVoid c (depth + 1) (acc ++ "\n" ++ indent (depth + 1) unit)) acc
     acc ++ "\n" ++ indent depth unit ++ s!"</{tag}>"
 termination_by sizeOf r
 
 /-- Render a node as indented, human-readable HTML.
 `unit` is the string repeated per indentation level (default two spaces). -/
-def renderPretty (n : Node cat) (unit : String := "  ") : String :=
-  renderPrettyInto unit n.repr 0 ""
+def renderPretty (n : Node cat) (unit : String := "  ") (selfClosingVoid : Bool := false) : String :=
+  renderPrettyInto unit selfClosingVoid n.repr 0 ""
 
 /-- A normal element whose children may be a *different*, narrower
 category than the element itself -- e.g. `p` is flow content but only

@@ -12,15 +12,16 @@ with nothing else following, or opens a tag immediately matched, once its
 contents are exhausted, by a literal `</tag>` -- and nowhere else does a
 `<` or `>` appear at all. This is a spec of the *output string*, stated
 independently of `Node`/`Repr`. -/
-inductive WellFormedHtml : String → Prop where
-  | text {s : String} (h : ∀ c ∈ s.toList, c ≠ '<' ∧ c ≠ '>') : WellFormedHtml s
+inductive WellFormedHtml (selfClosingVoid : Bool) : String → Prop where
+  | text {s : String} (h : ∀ c ∈ s.toList, c ≠ '<' ∧ c ≠ '>') : WellFormedHtml selfClosingVoid s
   | void {tag attrsStr : String} (h : ∀ c ∈ attrsStr.toList, c ≠ '<' ∧ c ≠ '>') :
-      WellFormedHtml s!"<{tag}{attrsStr}>"
+      WellFormedHtml selfClosingVoid
+        (if selfClosingVoid then s!"<{tag}{attrsStr} />" else s!"<{tag}{attrsStr}>")
   | elem {tag attrsStr inner : String}
-      (hattrs : ∀ c ∈ attrsStr.toList, c ≠ '<' ∧ c ≠ '>') (hinner : WellFormedHtml inner) :
-      WellFormedHtml (s!"<{tag}{attrsStr}>" ++ inner ++ s!"</{tag}>")
-  | append {a b : String} (ha : WellFormedHtml a) (hb : WellFormedHtml b) :
-      WellFormedHtml (a ++ b)
+      (hattrs : ∀ c ∈ attrsStr.toList, c ≠ '<' ∧ c ≠ '>') (hinner : WellFormedHtml selfClosingVoid inner) :
+      WellFormedHtml selfClosingVoid (s!"<{tag}{attrsStr}>" ++ inner ++ s!"</{tag}>")
+  | append {a b : String} (ha : WellFormedHtml selfClosingVoid a) (hb : WellFormedHtml selfClosingVoid b) :
+      WellFormedHtml selfClosingVoid (a ++ b)
 
 namespace Node
 
@@ -44,18 +45,19 @@ private theorem foldl_rebase {α : Type} (g : α → String → String) :
 /-- `renderCompactInto`'s threaded accumulator is just a prefix: rendering
 into an existing accumulator is the same as prepending that accumulator to
 what rendering from scratch produces. -/
-private theorem renderCompactInto_append (r : Repr) (acc : String) :
-    renderCompactInto r acc = acc ++ renderCompactInto r "" :=
+private theorem renderCompactInto_append (selfClosingVoid : Bool) (r : Repr) (acc : String) :
+    renderCompactInto selfClosingVoid r acc = acc ++ renderCompactInto selfClosingVoid r "" :=
   match r with
   | .leaf _ => by simp [renderCompactInto]
   | .void _ _ => by simp [renderCompactInto]
   | .rawText _ _ _ => by simp [renderCompactInto, String.append_assoc]
   | .elem tag attrsStr children _ => by
     simp only [renderCompactInto, String.empty_append]
-    have hg : ∀ c ∈ children, ∀ s, renderCompactInto c s = s ++ renderCompactInto c "" :=
-      fun c _ s => renderCompactInto_append c s
-    rw [foldl_rebase renderCompactInto children hg (acc ++ s!"<{tag}{attrsStr}>"),
-        foldl_rebase renderCompactInto children hg (s!"<{tag}{attrsStr}>")]
+    have hg : ∀ c ∈ children, ∀ s,
+        renderCompactInto selfClosingVoid c s = s ++ renderCompactInto selfClosingVoid c "" :=
+      fun c _ s => renderCompactInto_append selfClosingVoid c s
+    rw [foldl_rebase (renderCompactInto selfClosingVoid) children hg (acc ++ s!"<{tag}{attrsStr}>"),
+        foldl_rebase (renderCompactInto selfClosingVoid) children hg (s!"<{tag}{attrsStr}>")]
     simp [String.append_assoc]
 
 /-- A `Repr` built without `unsafeRaw`: every leaf/text/attribute string it
@@ -82,20 +84,22 @@ private inductive WellFormedRepr : Repr → Prop where
 /-- A `Node` built without `unsafeRaw` -- see `WellFormedRepr`. -/
 def WellFormed (n : Node cat) : Prop := WellFormedRepr n.repr
 
-private theorem foldl_wellFormed (children : List Repr)
-    (hind : ∀ c ∈ children, ∀ acc, WellFormedHtml acc → WellFormedHtml (renderCompactInto c acc)) :
-    ∀ acc, WellFormedHtml acc →
-      WellFormedHtml (children.foldl (fun acc c => renderCompactInto c acc) acc) := by
+private theorem foldl_wellFormed (selfClosingVoid : Bool) (children : List Repr)
+    (hind : ∀ c ∈ children, ∀ acc, WellFormedHtml selfClosingVoid acc →
+      WellFormedHtml selfClosingVoid (renderCompactInto selfClosingVoid c acc)) :
+    ∀ acc, WellFormedHtml selfClosingVoid acc →
+      WellFormedHtml selfClosingVoid (children.foldl (fun acc c => renderCompactInto selfClosingVoid c acc) acc) := by
   induction children with
   | nil => intro acc hacc; simpa using hacc
   | cons c cs ih =>
     intro acc hacc
     simp only [List.foldl_cons]
     exact ih (fun c' hc' => hind c' (List.mem_cons_of_mem _ hc'))
-      (renderCompactInto c acc) (hind c (List.mem_cons_self ..) acc hacc)
+      (renderCompactInto selfClosingVoid c acc) (hind c (List.mem_cons_self ..) acc hacc)
 
-private theorem renderCompactInto_wellFormed (r : Repr) (hr : WellFormedRepr r) :
-    ∀ acc, WellFormedHtml acc → WellFormedHtml (renderCompactInto r acc) := by
+private theorem renderCompactInto_wellFormed (selfClosingVoid : Bool) (r : Repr) (hr : WellFormedRepr r) :
+    ∀ acc, WellFormedHtml selfClosingVoid acc →
+      WellFormedHtml selfClosingVoid (renderCompactInto selfClosingVoid r acc) := by
   induction hr with
   | leaf h => intro acc hacc; simp only [renderCompactInto]; exact hacc.append (.text h)
   | void h => intro acc hacc; simp only [renderCompactInto]; exact hacc.append (.void h)
@@ -107,18 +111,21 @@ private theorem renderCompactInto_wellFormed (r : Repr) (hr : WellFormedRepr r) 
     rename_i tag attrsStr children block
     intro acc hacc
     simp only [renderCompactInto]
-    have hg : ∀ c ∈ children, ∀ s, renderCompactInto c s = s ++ renderCompactInto c "" :=
-      fun c _ s => renderCompactInto_append c s
-    rw [foldl_rebase renderCompactInto children hg (acc ++ s!"<{tag}{attrsStr}>")]
-    have hinner : WellFormedHtml (children.foldl (fun acc c => renderCompactInto c acc) "") :=
-      foldl_wellFormed children ih "" (.text (by simp))
+    have hg : ∀ c ∈ children, ∀ s,
+        renderCompactInto selfClosingVoid c s = s ++ renderCompactInto selfClosingVoid c "" :=
+      fun c _ s => renderCompactInto_append selfClosingVoid c s
+    rw [foldl_rebase (renderCompactInto selfClosingVoid) children hg (acc ++ s!"<{tag}{attrsStr}>")]
+    have hinner : WellFormedHtml selfClosingVoid
+        (children.foldl (fun acc c => renderCompactInto selfClosingVoid c acc) "") :=
+      foldl_wellFormed selfClosingVoid children ih "" (.text (by simp))
     simpa [String.append_assoc] using hacc.append (.elem hattrs hinner)
 
 /-- **The well-formedness theorem:** given no `unsafeRaw` use, `render`
 always produces well-formed HTML (`WellFormedHtml`) -- balanced tags, with
 no unescaped `<`/`>` anywhere outside of tag delimiters. -/
-theorem render_wellFormed (n : Node cat) (h : WellFormed n) : WellFormedHtml n.render :=
-  renderCompactInto_wellFormed n.repr h "" (.text (by simp))
+theorem render_wellFormed (n : Node cat) (h : WellFormed n) (selfClosingVoid : Bool := false) :
+    WellFormedHtml selfClosingVoid (n.render selfClosingVoid) :=
+  renderCompactInto_wellFormed selfClosingVoid n.repr h "" (.text (by simp))
 
 /-- Drops the `≠ '"'` conjunct `escape_safe` gives, down to what
 `WellFormed`/`WellFormedHtml` need. -/
@@ -194,7 +201,7 @@ example : Node.WellFormed
   · exact Node.text_wellFormed "hi"
   · exact Node.element_wellFormed .flow "p" [] [] (by simp)
 
-example : WellFormedHtml (Node.render
+example : WellFormedHtml false (Node.render
     (Node.element .flow "div" [Node.text "hi", Node.element .flow "p" ([] : List (Node .flow))])) :=
   Node.render_wellFormed _ (by
     apply Node.element_wellFormed
@@ -214,6 +221,14 @@ example : WellFormedHtml (Node.render
 
 -- String literals coerce directly to a `text` leaf (no `Node.text` needed).
 #guard Node.render (Node.element .flow "p" [("hi" : Node .flow)]) = "<p>hi</p>"
+
+-- `selfClosingVoid` opts into XHTML-style void tags, and leaves everything
+-- else (including non-void elements) untouched.
+#guard Node.render (Node.voidElement .flow "br") (selfClosingVoid := true) = "<br />"
+#guard Node.render
+    (Node.element .flow "div" [(Node.voidElement .flow "hr" : Node .flow)]) (selfClosingVoid := true)
+  = "<div><hr /></div>"
+#guard Node.renderPretty (Node.voidElement .flow "br") (selfClosingVoid := true) = "<br />"
 
 -- Pretty-printing: empty and void elements stay one line.
 #guard Node.renderPretty (Node.element .flow "div" []) = "<div></div>"
