@@ -32,21 +32,22 @@ there is no way to hand a constructor a pre-broken attribute string.
 
 ## Well-formedness
 
-`Node.render_wellFormed`, proved in `HtmlTests/Node.lean` (not shipped as
-part of the `Html` library import -- `Repr`/`renderCompactInto` are exposed
-non-`private` specifically so this proof can live in test code rather than
-alongside the library itself), shows that, given no `unsafeRaw` use,
-`Node.render` always produces well-formed HTML (`WellFormedHtml`: balanced
-tags, no unescaped `<`/`>` outside of tag delimiters). It's established
-compositionally -- `Node.WellFormed` for a concrete tree follows from
-chaining `element_wellFormed`/`elementOf_wellFormed`/`voidElement_wellFormed`/
+`Node.render_wellFormed` (`Html/Node.lean`), part of the public API, shows
+that, given no `unsafeRaw` use, `Node.render` always produces well-formed
+HTML (`WellFormedHtml`: balanced tags, no unescaped `<`/`>` outside of tag
+delimiters). It's established compositionally -- `Node.WellFormed` for a
+concrete tree follows from chaining
+`element_wellFormed`/`elementOf_wellFormed`/`voidElement_wellFormed`/
 `textElement_wellFormed`/`text_wellFormed` over however that tree was built
 (see the example in `HtmlTests/Node.lean`) -- which is also why there's
 deliberately no `unsafeRaw_wellFormed`: a `text "hi"` and an `unsafeRaw "hi"`
 can be the literal same `Node` value, so "was `unsafeRaw` used" isn't
 something a theorem can check after the fact, only something a
-*construction* can avoid. `Node.renderPretty` isn't covered by this theorem
-yet -- the argument extends (with an extra side-condition that the
+*construction* can avoid. `escape_safe` and `Attrs.render_safe`
+(`Html/Escape.lean`), the escaping-safety facts `render_wellFormed`'s proof
+is built on, are public too, for callers that want to cite them directly
+rather than re-deriving them. `Node.renderPretty` isn't covered by this
+theorem yet -- the argument extends (with an extra side-condition that the
 indentation `unit` itself contains no `<`/`>`) but hasn't been carried out.
 
 ## The one remaining escape hatch
