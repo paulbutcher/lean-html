@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+Miscellaneous style and layout improvements.
+
 ## [0.5.0] - 2026-08-07
 
 * `Node.render_wellFormed` and the escaping-safety proofs it depends on

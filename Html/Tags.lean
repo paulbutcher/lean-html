@@ -1,3 +1,8 @@
+/-
+Copyright (c) 2026 Paul Butcher. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+-/
+
 import Html.Node
 import Html.Escape
 import Html.Attrs
@@ -8,26 +13,24 @@ Named tag functions, built on `Html/Node.lean`'s constructor shapes and
 
 Scope notes:
 
-- `html` is **not** defined here -- it's inseparable from the
+- `html` is **not** defined here; it's inseparable from the
   `<!DOCTYPE html>` prefix that makes it a document at all, so it stays
   `Html.document`'s sole responsibility rather than a general-purpose tag.
 - Tags with well-known attributes beyond the global set get a dedicated
   `<Tag>Attrs` record in `Html/Attrs.lean` (`AAttrs`, `ImgAttrs`,
   `InputAttrs`, and ~35 others), which `extends HtmlAttrs` so a single
-  `attrs` argument carries both. Tags with nothing beyond the global set
-  -- `div`, `p`, `span`, `legend`, `summary`, `datalist`, and most other
-  containers/text-level elements -- take plain `HtmlAttrs` directly, plus
-  `rawAttrs`, which also covers any attribute not (yet) modeled as a
-  typed field on a tag that does have a record. More typed records can be
-  added later following the existing pattern.
+  `attrs` argument carries both. Tags with nothing beyond the global set,
+  such as `div`, `p`, `span`, `legend`, `summary`, and `datalist`, take
+  plain `HtmlAttrs` directly, plus `rawAttrs`, which also covers any
+  attribute not modeled as a typed field on a tag that does have a record.
 - List (`ul`/`ol`/`menu`), table (`table`/`thead`/`tbody`/`tfoot`/`tr`),
   and `select`/`optgroup`/`datalist` children are constrained to their real
   HTML5 content models via dedicated categories in `Html/Node.lean`
   (`listItem`; `tableSection`/`tableRow`/`tableCell`/`tableColumn`;
   `option`/`selectChild`) rather than accepting general flow content. Order
   within a parent (e.g. HTML5 wants `<thead>` before `<tbody>`, `<caption>`
-  first inside `<table>`) is still unchecked -- these categories only
-  constrain *which* tags are valid children, not their sequence.
+  first inside `<table>`) is unchecked; these categories only constrain
+  *which* tags are valid children, not their sequence.
 -/
 
 namespace Html
@@ -93,10 +96,10 @@ def title (content : String) (attrs : HtmlAttrs := {})
   Node.textElement .flow "title" content (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 /-- Takes `rawAttrs` as its primary content rather than a typed
-attrs record, since a meta tag's shape varies by purpose --
+attrs record, since a meta tag's shape varies by purpose:
 `[("charset", "utf-8")]`, `[("name", "viewport"), ("content", "...")]`,
-`[("http-equiv", "..."), ("content", "...")]`, ... -- with no one shape
-common enough to single out as required fields. -/
+`[("http-equiv", "..."), ("content", "...")]`, and so on, with no one
+shape common enough to single out as required fields. -/
 def meta_ (rawAttrs : List (String × String)) (attrs : HtmlAttrs := {}) : Node .flow :=
   Node.voidElement .flow "meta" (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 

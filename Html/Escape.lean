@@ -1,3 +1,8 @@
+/-
+Copyright (c) 2026 Paul Butcher. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+-/
+
 namespace Html
 
 /-- Escapes `&`, `<`, `>`, `"` -/
@@ -19,7 +24,7 @@ def renderAttr (name value : String) : String :=
   s!" {name}=\"{escape value}\""
 
 /-- Characters allowed in a sanitized attribute name: ASCII letters,
-digits, `-`, `_`, `:`, `.` -- enough for real-world names (`data-x`,
+digits, `-`, `_`, `:`, `.`, enough for real-world names (`data-x`,
 `aria-label`, `v-on:click`) while excluding anything (whitespace, `=`,
 `<`, `>`, quotes) that would let a name break out of the tag it's
 rendered into. -/
@@ -39,14 +44,14 @@ def sanitizeAttrName (s : String) : String :=
   if sanitized.isEmpty then "_" else sanitized
 
 /-- One rendered attribute: a `name="value"` pair, or a bare boolean flag
-(`name`, no value). Names and values are stored *unsanitized/unescaped* --
+(`name`, no value). Names and values are stored *unsanitized/unescaped*;
 `Attrs.render` is the only place that happens. -/
 inductive AttrFragment where
   | value (name val : String)
   | flag (name : String)
 
 /-- An attribute list, in emission order. This is the only type
-`Html/Node.lean`'s element constructors accept for attributes -- unlike a
+`Html/Node.lean`'s element constructors accept for attributes; unlike a
 bare `attrsStr : String`, an `Attrs` value can't smuggle in an unescaped
 `<`/`>`/`"` no matter what strings its fragments carry, because turning it
 into a string always goes through `Attrs.render` below. -/
@@ -108,8 +113,8 @@ private theorem join_toList (l : List String) :
 /-- **The XSS-relevant safety property:** `escape`'s output never contains a raw
 (unescaped) `<`, `>`, or `"`. This is what makes double-quote-delimited,
 escaped attribute values and escaped text content safe against markup
-breakout — see `renderAttr_safe` for the paired renderer-side invariant this
-depends on. -/
+breakout, given a renderer that keeps the escaped value between its two
+literal `"` delimiters. -/
 theorem escape_safe (s : String) : ∀ c ∈ (escape s).toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"' := by
   unfold escape String.join
   intro c hc
@@ -121,44 +126,13 @@ theorem escape_safe (s : String) : ∀ c ∈ (escape s).toList, c ≠ '<' ∧ c 
   simp only [Bool.or_eq_false_iff, beq_eq_false_iff_ne, ne_eq] at h
   exact ⟨h.1.1, h.1.2, h.2⟩
 
-/-- **The paired renderer-side invariant:** `renderAttr` always embeds the escaped
-value between two literal `"` delimiters. Combined with `escape_safe`, this rules
-out attribute-value breakout: the value can never contain a raw `"` to close the
-attribute early, nor a raw `<`/`>` to open a new tag. -/
-theorem renderAttr_safe (name value : String) :
-    renderAttr name value = s!" {name}=\"" ++ escape value ++ "\"" ∧
-      ∀ c ∈ (escape value).toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"' :=
-  ⟨rfl, escape_safe value⟩
-
-private theorem foldl_append_eq (l : List String) :
-    ∀ acc : String, l.foldl (· ++ ·) acc = acc ++ l.foldl (· ++ ·) "" := by
-  induction l with
-  | nil => simp
-  | cons a as ih =>
-    intro acc
-    simp only [List.foldl_cons, String.empty_append]
-    rw [ih a, ih (acc ++ a), String.append_assoc]
-
-private theorem join_append (l1 l2 : List String) :
-    String.join (l1 ++ l2) = String.join l1 ++ String.join l2 := by
-  unfold String.join
-  rw [List.foldl_append, foldl_append_eq l2]
-
-/-- **Compositionality:** escaping two fragments and concatenating the results
-is the same as escaping their concatenation directly. No double-escaping
-and no under-escaping happens at the fragment boundary. -/
-theorem escape_append (a b : String) : escape (a ++ b) = escape a ++ escape b := by
-  unfold escape
-  rw [String.toList_append, List.map_append, join_append]
-
-/-- Unfolds `sanitizeAttrName`'s `let` so `split` can case on the `if` directly. -/
 private theorem sanitizeAttrName_eq (s : String) :
     sanitizeAttrName s =
       if (s.map sanitizeAttrNameChar).isEmpty then "_" else s.map sanitizeAttrNameChar :=
   rfl
 
 /-- **The rawAttrs-name-relevant safety property:** `sanitizeAttrName`'s output
-consists entirely of `isAttrNameChar` characters -- no whitespace, `=`, `<`,
+consists entirely of `isAttrNameChar` characters; no whitespace, `=`, `<`,
 `>`, or quote can survive sanitization. This is what closes the `renderRawAttrs`
 gap: an untrusted attribute name can no longer break out of the tag it's
 rendered into (compare `escape_safe`, which gives the same guarantee for
@@ -223,7 +197,7 @@ private theorem AttrFragment.render_safe (f : AttrFragment) :
 
 /-- **The well-formedness-relevant safety property:** no matter what
 fragments an `Attrs` value contains, `Attrs.render`'s output never contains
-a raw `<` or `>` -- every name goes through `sanitizeAttrName_safe`, every
+a raw `<` or `>`; every name goes through `sanitizeAttrName_safe`, every
 value through `escape_safe`. This is what makes `Node.elementOf`'s
 attribute string safe to splice directly after a tag name (see
 `Node.WellFormed` in `Html/Node.lean`). -/

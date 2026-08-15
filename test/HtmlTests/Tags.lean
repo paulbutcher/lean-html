@@ -1,3 +1,8 @@
+/-
+Copyright (c) 2026 Paul Butcher. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+-/
+
 import Html.Node
 import Html.Tags
 
@@ -254,7 +259,7 @@ example : Node .tableRow := tr [div []]
   = "<ul>\n  <li>one</li>\n  <li>two</li>\n</ul>"
 
 -- Structure-only categories (table rows/cells, select options) get block
--- layout when pretty-printed, same as flow content -- only genuine
+-- layout when pretty-printed, same as flow content; only genuine
 -- phrasing content stays inline.
 #guard Node.renderPretty (table [
     thead [tr [th [Node.text "H"]]],

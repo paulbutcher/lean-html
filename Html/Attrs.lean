@@ -1,3 +1,8 @@
+/-
+Copyright (c) 2026 Paul Butcher. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+-/
+
 import Html.Escape
 
 namespace Html
@@ -5,12 +10,6 @@ namespace Html
 /-- Lets `{ id := "x" }` elaborate directly against an `Option String`
 field without writing `some "x"` -/
 scoped instance : Coe String (Option String) := ⟨some⟩
-
-/-- Render a boolean attribute: the bare attribute name when `true`,
-absent entirely when `false` -/
-def renderBoolAttr (name : String) : Bool → String
-  | true => s!" {name}"
-  | false => ""
 
 /-- Global attributes, valid on any element. `class_` (not `class`, a
 Lean keyword) renders as the `class` attribute. Every per-element record
@@ -134,7 +133,7 @@ def OptgroupAttrs.render (a : OptgroupAttrs) : Attrs :=
   reqAttr "label" a.label ++ flagAttr "disabled" a.disabled ++ HtmlAttrs.render a.toHtmlAttrs
 
 /-- `<output>`
-`for_` (trailing underscore -- `for` is a Lean keyword). -/
+`for_` (trailing underscore, `for` is a Lean keyword). -/
 structure OutputAttrs extends HtmlAttrs where
   for_ : Option String := none
   name : Option String := none
@@ -165,7 +164,7 @@ def MeterAttrs.render (a : MeterAttrs) : Attrs :=
     HtmlAttrs.render a.toHtmlAttrs
 
 /-- `<details>`/`<dialog>`
-`open_` (trailing underscore -- `open` is a Lean keyword). -/
+`open_` (trailing underscore, `open` is a Lean keyword). -/
 structure OpenAttrs extends HtmlAttrs where
   open_ : Bool := false
 
@@ -223,7 +222,7 @@ def TrackAttrs.render (a : TrackAttrs) : Attrs :=
     optAttr "label" a.label ++ flagAttr "default" a.default ++ HtmlAttrs.render a.toHtmlAttrs
 
 /-- `<iframe>`
-`title` isn't declared here -- it's the same attribute as `HtmlAttrs.title`
+`title` isn't declared here; it's the same attribute as `HtmlAttrs.title`
 (strongly recommended for `<iframe>` specifically, for accessibility), so
 it's inherited rather than redeclared. -/
 structure IframeAttrs extends HtmlAttrs where
@@ -339,7 +338,7 @@ def FormAttrs.render (a : FormAttrs) : Attrs :=
   optAttr "action" a.action ++ optAttr "method" a.method ++ HtmlAttrs.render a.toHtmlAttrs
 
 /-- `<label>`
-`for_` (trailing underscore -- `for` is a Lean keyword). -/
+`for_` (trailing underscore, `for` is a Lean keyword). -/
 structure LabelAttrs extends HtmlAttrs where
   for_ : Option String := none
 

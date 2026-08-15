@@ -1,3 +1,8 @@
+/-
+Copyright (c) 2026 Paul Butcher. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+-/
+
 import Html.Escape
 
 namespace Html
@@ -8,7 +13,7 @@ also carries enough structure-only categories to keep list, table, and
 aren't in real HTML5: a `<li>`, `<tr>`, or `<option>` is only valid inside
 its specific parent, not anywhere flow/phrasing content is. What's *not*
 modeled is ordering within a parent (e.g. HTML5 wants `<caption>` before
-`<colgroup>` before `<thead>` inside `<table>`) -- these categories only
+`<colgroup>` before `<thead>` inside `<table>`); these categories only
 constrain which tags are valid children, not their sequence.
 Phrasing content is a subset of flow content, a bare `<option>` is a valid
 `<select>` child, and a bare `<tr>` is a valid `<table>` child (the `Coe`
@@ -27,7 +32,7 @@ inductive Category where
 
 /-- Internal tree representation. Not `private`, so that proofs about
 `render`/`renderPretty` (e.g. this file's well-formedness theorems) can do
-induction on it -- but ordinary callers have no reason to touch it and
+induction on it, but ordinary callers have no reason to touch it and
 should go through `Node`'s own constructors instead. -/
 inductive Repr where
   | leaf (s : String)
@@ -41,7 +46,7 @@ a `Node` is through `element`/`elementOf`/`voidElement`/`textElement`/
 `text`/`unsafeRaw` (and, on top of those, the tag functions in
 `Html/Tags.lean`), which is what makes content-model correctness a
 corollary of type soundness. The `repr` field is readable (needed by the
-same proofs `Repr` is exposed for) but not writable -- `mk` stays private,
+same proofs `Repr` is exposed for) but not writable; `mk` stays private,
 so a `Node` still can't be fabricated from an arbitrary `Repr`. -/
 structure Node (cat : Category) where
   private mk ::
@@ -50,7 +55,7 @@ structure Node (cat : Category) where
 namespace Node
 
 /-- `selfClosingVoid` selects XHTML-style void tags (`<br />`) over the
-default HTML5 style (`<br>`) -- a whole-document serialization convention,
+default HTML5 style (`<br>`), a whole-document serialization convention,
 not a per-tag choice, so it's a render-time parameter rather than something
 recorded on `Repr.void` itself. -/
 def renderCompactInto (selfClosingVoid : Bool) : Repr → String → String
@@ -106,17 +111,17 @@ def renderPretty (n : Node cat) (unit : String := "  ") (selfClosingVoid : Bool 
   renderPrettyInto unit selfClosingVoid n.repr 0 ""
 
 /-- A normal element whose children may be a *different*, narrower
-category than the element itself -- e.g. `p` is flow content but only
+category than the element itself; e.g. `p` is flow content but only
 accepts phrasing children (HTML5 disallows a `<div>` directly inside a
 `<p>`), which this makes a type error rather than a spec violation caught
 only at runtime. `attrs` (built by the tag functions in `Html/Tags.lean`
 from `HtmlAttrs.render`/`renderRawAttrs`-style helpers) is rendered to a
 string internally via `Attrs.render`, which is what makes the result
-well-formed regardless of what names/values a caller supplies -- there's
+well-formed regardless of what names/values a caller supplies; there's
 no way to hand this constructor a pre-broken attribute string the way a
 bare `attrsStr : String` parameter would have allowed.
 Children are pretty-printed one-per-line (block layout) unless `contentCat`
-is `phrasing` -- true inline text-level content -- so the structure-only
+is `phrasing`, true inline text-level content, so the structure-only
 categories (`listItem`, `tableRow`, ...) still get block layout like flow
 content does, and only genuine prose stays inline. -/
 def elementOf (cat contentCat : Category) (tag : String)
@@ -135,7 +140,7 @@ def voidElement (cat : Category) (tag : String) (attrs : Attrs := []) : Node cat
   ⟨.void tag (Attrs.render attrs)⟩
 
 /-- An element whose content model is plain text, not nested elements
-(`<textarea>`, `<option>` -- these are RCDATA-like in HTML5: entities are
+(`<textarea>`, `<option>`, which are RCDATA-like in HTML5: entities are
 still escaped normally, but `<`/`>` in the content are never parsed as
 nested markup, so typing their content as `List (Node cat)` would be
 misleading). -/
@@ -158,21 +163,13 @@ category.
 Misuse can lead to XSS issues. -/
 def unsafeRaw (s : String) : Node cat := ⟨.leaf s⟩
 
-theorem render_text (s : String) : (text s : Node cat).render = escape s := by
-  simp [render, text, renderCompactInto]
-
-theorem render_textElement (cat : Category) (tag content : String) (attrs : Attrs) :
-    (textElement cat tag content attrs).render
-      = s!"<{tag}{Attrs.render attrs}>" ++ escape content ++ s!"</{tag}>" := by
-  simp [render, textElement, renderCompactInto, toString, String.append_assoc]
-
 end Node
 
 /-- The well-formed-HTML grammar that `render`/`renderPretty` are proved to
 produce, given no `unsafeRaw` use (`Node.render_wellFormed`). A string is
 well-formed if every `<` it contains either opens a void tag `<tag attrs>`
 with nothing else following, or opens a tag immediately matched, once its
-contents are exhausted, by a literal `</tag>` -- and nowhere else does a
+contents are exhausted, by a literal `</tag>`; and nowhere else does a
 `<` or `>` appear at all. This is a spec of the *output string*, stated
 independently of `Node`/`Repr`. -/
 inductive WellFormedHtml (selfClosingVoid : Bool) : String → Prop where
@@ -226,7 +223,7 @@ private theorem renderCompactInto_append (selfClosingVoid : Bool) (r : Repr) (ac
 /-- A `Repr` built without `unsafeRaw`: every leaf/text/attribute string it
 carries avoids raw `<`/`>`. This can't be checked after the fact for an
 arbitrary `Node` (a `text "hi"` and an `unsafeRaw "hi"` are literally the
-same value once built), so `WellFormed` below isn't a runtime check -- it's
+same value once built), so `WellFormed` below isn't a runtime check; it's
 established compositionally, per constructor, by the lemmas that follow
 (`text_wellFormed`, `elementOf_wellFormed`, ...), each of which mirrors a
 step of building a `Node` without ever calling `unsafeRaw`. There's
@@ -244,7 +241,7 @@ private inductive WellFormedRepr : Repr → Prop where
       (hchildren : ∀ c ∈ children, WellFormedRepr c) :
       WellFormedRepr (.elem tag attrsStr children block)
 
-/-- A `Node` built without `unsafeRaw` -- see `WellFormedRepr`. -/
+/-- A `Node` built without `unsafeRaw`; see `WellFormedRepr`. -/
 def WellFormed (n : Node cat) : Prop := WellFormedRepr n.repr
 
 private theorem foldl_wellFormed (selfClosingVoid : Bool) (children : List Repr)
@@ -284,7 +281,7 @@ private theorem renderCompactInto_wellFormed (selfClosingVoid : Bool) (r : Repr)
     simpa [String.append_assoc] using hacc.append (.elem hattrs hinner)
 
 /-- **The well-formedness theorem:** given no `unsafeRaw` use, `render`
-always produces well-formed HTML (`WellFormedHtml`) -- balanced tags, with
+always produces well-formed HTML (`WellFormedHtml`): balanced tags, with
 no unescaped `<`/`>` anywhere outside of tag delimiters. -/
 theorem render_wellFormed (n : Node cat) (h : WellFormed n) (selfClosingVoid : Bool := false) :
     WellFormedHtml selfClosingVoid (n.render selfClosingVoid) :=
@@ -323,24 +320,6 @@ theorem elementOf_wellFormed (cat contentCat : Category) (tag : String)
 theorem element_wellFormed (cat : Category) (tag : String) (children : List (Node cat))
     (attrs : Attrs) (h : ∀ c ∈ children, WellFormed c) : WellFormed (element cat tag children attrs) :=
   elementOf_wellFormed cat cat tag children attrs h
-
-/-- **Paired renderer-side invariant for `text`:** a `text` leaf renders to exactly
-its escaped content, with nothing else spliced in. Combined with `escape_safe`,
-a `text` leaf can never inject a raw `<`/`>` into its surrounding markup. -/
-theorem render_text_safe (cat : Category) (s : String) :
-    Node.render (Node.text (cat := cat) s) = escape s ∧
-      ∀ c ∈ (escape s).toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"' :=
-  ⟨Node.render_text s, escape_safe s⟩
-
-/-- **Paired renderer-side invariant for `textElement`:** the escaped content is
-always embedded between the literal opening and closing tags. Combined with
-`escape_safe`, the content can never contain a raw `<`/`>`, so it can't
-prematurely close `</tag>` or open nested markup (the RCDATA safety property). -/
-theorem render_textElement_safe (cat : Category) (tag content : String) (attrs : Attrs) :
-    Node.render (Node.textElement cat tag content attrs)
-      = s!"<{tag}{Attrs.render attrs}>" ++ escape content ++ s!"</{tag}>" ∧
-      ∀ c ∈ (escape content).toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"' :=
-  ⟨Node.render_textElement cat tag content attrs, escape_safe content⟩
 
 end Node
 

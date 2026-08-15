@@ -1,3 +1,8 @@
+/-
+Copyright (c) 2026 Paul Butcher. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+-/
+
 import Html.Node
 import Html.Escape
 import Html.Attrs
@@ -25,8 +30,8 @@ Every tag function (`Html/Tags.lean`) is a smart constructor built from
 `Node`'s public primitives (`element`, `elementOf`, `voidElement`,
 `textElement`, `text`), so a well-typed program that builds a `Node`
 already has correct tag nesting and balanced tags. Attributes flow through
-these primitives as an `Attrs` value (`Html/Escape.lean`) -- an ordered
-list of name/value or bare-flag fragments -- which `Attrs.render` turns
+these primitives as an `Attrs` value (`Html/Escape.lean`), an ordered
+list of name/value or bare-flag fragments, which `Attrs.render` turns
 into a string, sanitizing every name and escaping every value as it goes;
 there is no way to hand a constructor a pre-broken attribute string.
 
@@ -35,20 +40,20 @@ there is no way to hand a constructor a pre-broken attribute string.
 `Node.render_wellFormed` (`Html/Node.lean`), part of the public API, shows
 that, given no `unsafeRaw` use, `Node.render` always produces well-formed
 HTML (`WellFormedHtml`: balanced tags, no unescaped `<`/`>` outside of tag
-delimiters). It's established compositionally -- `Node.WellFormed` for a
+delimiters). It's established compositionally; `Node.WellFormed` for a
 concrete tree follows from chaining
 `element_wellFormed`/`elementOf_wellFormed`/`voidElement_wellFormed`/
 `textElement_wellFormed`/`text_wellFormed` over however that tree was built
-(see the example in `HtmlTests/Node.lean`) -- which is also why there's
+(see the example in `test/HtmlTests/Node.lean`), which is also why there's
 deliberately no `unsafeRaw_wellFormed`: a `text "hi"` and an `unsafeRaw "hi"`
 can be the literal same `Node` value, so "was `unsafeRaw` used" isn't
 something a theorem can check after the fact, only something a
 *construction* can avoid. `escape_safe` and `Attrs.render_safe`
 (`Html/Escape.lean`), the escaping-safety facts `render_wellFormed`'s proof
 is built on, are public too, for callers that want to cite them directly
-rather than re-deriving them. `Node.renderPretty` isn't covered by this
-theorem yet -- the argument extends (with an extra side-condition that the
-indentation `unit` itself contains no `<`/`>`) but hasn't been carried out.
+rather than re-deriving them. The theorem covers `Node.render`; it says
+nothing about `Node.renderPretty`, whose interposed indentation would need
+a side-condition that the indentation `unit` contains no `<`/`>`.
 
 ## The one remaining escape hatch
 
@@ -65,7 +70,7 @@ through.
 ## How to add a new tag
 
 1. Decide the tag's own `Category` and its children's `Category` (they
-   can differ -- e.g. `p` is `flow` but only accepts `phrasing` children,
+   can differ; e.g. `p` is `flow` but only accepts `phrasing` children,
    which is exactly what makes a `<div>` inside a `<p>` a type error). See
    `Html/Node.lean`'s `element` (same category both sides) vs. `elementOf`
    (different categories) vs. `voidElement` (no children) vs.
@@ -81,16 +86,22 @@ through.
 3. Define the tag function in `Html/Tags.lean`: `(children) (attrs :=
    {}) (rawAttrs := [])`, calling the right `Node` primitive from step 1
    with `combineAttrs <attrs-rendered> rawAttrs` as the `Attrs` argument.
-4. Add a `#guard` smoke test (minimal render output) to `HtmlTests/Tags.lean`,
-   next to the other tags' tests.
+4. Add a `#guard` smoke test (minimal render output) to
+   `test/HtmlTests/Tags.lean`, next to the other tags' tests. The tag name
+   is a string literal that nothing else pins, so a guard is the right
+   strength here; anything that generalizes over tags belongs in a theorem
+   instead.
 
 ## How to add a new attribute
 
 Add a field to `HtmlAttrs` (global) or the relevant per-element record in
-`Html/Attrs.lean`, wire it into that structure's `.render`, and add a
-`#guard` test to `HtmlTests/Attrs.lean`. Boolean attributes go through
-`flagAttr` (bare name when `true`, absent when `false`, never
-`name="false"`); string attributes go through `optAttr` (when optional) or
-`reqAttr` (when required) -- both escaped, double-quote-delimited, via
-`Attrs.render`.
+`Html/Attrs.lean`, and wire it into that structure's `.render`. Boolean
+attributes go through `flagAttr` (bare name when `true`, absent when
+`false`, never `name="false"`); string attributes go through `optAttr`
+(when optional) or `reqAttr` (when required); both escaped,
+double-quote-delimited, via `Attrs.render`. Extend that record's single
+`#guard` in `test/HtmlTests/Attrs.lean` with the new field rather than
+adding another: the guard exists to pin the attribute's spelling and its
+place in the emission order, and `test/HtmlTests/Escape.lean` already
+proves how each primitive renders, for every name.
 -/

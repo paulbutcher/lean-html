@@ -51,7 +51,7 @@ def page : String :=
 - `rawAttrs : List (String × String)` is accepted by every tag for
   attributes not otherwise covered.
 - `Node.unsafeRaw : String → Node cat` inserts unescaped markup verbatim
-  when you need it — the content is trusted as-is and not checked, so
+  when you need it; the content is trusted as-is and not checked, so
   misuse can introduce XSS vulnerabilities.
 - Use `Node.render` for compact output or `Node.renderPretty` for
   indented output on an individual `Node`; use `document` to produce a

@@ -1,0 +1,10 @@
+name = "test"
+defaultTargets = ["HtmlTests"]
+testDriver = "HtmlTests"
+
+[[require]]
+name = "html"
+path = ".."
+
+[[lean_lib]]
+name = "HtmlTests"
