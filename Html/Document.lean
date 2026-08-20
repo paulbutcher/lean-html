@@ -2,11 +2,14 @@
 Copyright (c) 2026 Paul Butcher. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
+module
 
-import Html.Node
-import Html.Escape
-import Html.Attrs
-import Html.Tags
+public import Html.Node
+public import Html.Escape
+public import Html.Attrs
+public import Html.Tags
+
+public section
 
 namespace Html
 

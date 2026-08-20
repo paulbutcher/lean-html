@@ -7,7 +7,7 @@ import Lake
 open Lake DSL
 
 package html where
-  version := v!"0.6.0"
+  version := v!"0.7.0"
 
 @[default_target]
 lean_lib Html

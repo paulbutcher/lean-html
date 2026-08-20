@@ -2,8 +2,10 @@
 Copyright (c) 2026 Paul Butcher. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
+module
 
 import Html.Node
+meta import Html.Node
 
 namespace HtmlTests
 
@@ -34,21 +36,13 @@ example : WellFormedHtml false (Node.render
     · exact Node.text_wellFormed "hi"
     · exact Node.element_wellFormed .flow "p" [] [] (by simp))
 
-theorem render_text (s : String) : (Node.text s : Node cat).render = escape s := by
-  simp [Node.render, Node.text, Node.renderCompactInto]
-
-theorem render_textElement (cat : Category) (tag content : String) (attrs : Attrs) :
-    (Node.textElement cat tag content attrs).render
-      = s!"<{tag}{Attrs.render attrs}>" ++ escape content ++ s!"</{tag}>" := by
-  simp [Node.render, Node.textElement, Node.renderCompactInto, toString, String.append_assoc]
-
 /-- **Paired renderer-side invariant for `text`:** a `text` leaf renders to exactly
 its escaped content, with nothing else spliced in. Combined with `escape_safe`,
 a `text` leaf can never inject a raw `<`/`>` into its surrounding markup. -/
 theorem render_text_safe (cat : Category) (s : String) :
     Node.render (Node.text (cat := cat) s) = escape s ∧
       ∀ c ∈ (escape s).toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"' :=
-  ⟨render_text s, escape_safe s⟩
+  ⟨Node.render_text s, escape_safe s⟩
 
 /-- **Paired renderer-side invariant for `textElement`:** the escaped content is
 always embedded between the literal opening and closing tags. Combined with
@@ -58,7 +52,7 @@ theorem render_textElement_safe (cat : Category) (tag content : String) (attrs :
     Node.render (Node.textElement cat tag content attrs)
       = s!"<{tag}{Attrs.render attrs}>" ++ escape content ++ s!"</{tag}>" ∧
       ∀ c ∈ (escape content).toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"' :=
-  ⟨render_textElement cat tag content attrs, escape_safe content⟩
+  ⟨Node.render_textElement cat tag content attrs, escape_safe content⟩
 
 #guard Node.render (Node.element .flow "div" []) = "<div></div>"
 #guard Node.render (Node.element .flow "div" [Node.element .flow "p" []]) = "<div><p></p></div>"

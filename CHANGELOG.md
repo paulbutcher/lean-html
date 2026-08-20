@@ -1,6 +1,10 @@
 # Changelog
 
-## [Unreleased]
+## [0.7.0] - 2026-08-20
+
+Switch to module system
+
+## [0.6.0] - 2026-08-15
 
 Miscellaneous style and layout improvements.
 

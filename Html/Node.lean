@@ -2,8 +2,11 @@
 Copyright (c) 2026 Paul Butcher. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
+module
 
-import Html.Escape
+public import Html.Escape
+
+public section
 
 namespace Html
 
@@ -162,6 +165,30 @@ instance : Coe String (Node cat) where
 category.
 Misuse can lead to XSS issues. -/
 def unsafeRaw (s : String) : Node cat := ⟨.leaf s⟩
+
+/-- A `text` leaf renders to exactly its escaped content, with nothing
+else spliced in. -/
+theorem render_text (s : String) : (text s : Node cat).render = escape s := by
+  simp [render, text, renderCompactInto]
+
+/-- A `textElement`'s escaped content is always embedded between its
+literal opening and closing tags, so the content can never prematurely
+close `</tag>` or open nested markup. -/
+theorem render_textElement (cat : Category) (tag content : String) (attrs : Attrs) :
+    (textElement cat tag content attrs).render
+      = s!"<{tag}{Attrs.render attrs}>" ++ escape content ++ s!"</{tag}>" := by
+  simp [render, textElement, renderCompactInto, toString, String.append_assoc]
+
+/-- Phrasing content is always valid wherever flow content is valid. -/
+def toFlow (n : Node .phrasing) : Node .flow := ⟨n.repr⟩
+
+/-- A bare `<option>` (without a wrapping `<optgroup>`) is a valid direct
+child of `<select>`. -/
+def toSelectChild (n : Node .option) : Node .selectChild := ⟨n.repr⟩
+
+/-- A bare `<tr>` (without a wrapping `<thead>`/`<tbody>`/`<tfoot>`) is a
+valid direct child of `<table>`. -/
+def toTableSection (n : Node .tableRow) : Node .tableSection := ⟨n.repr⟩
 
 end Node
 
@@ -323,18 +350,13 @@ theorem element_wellFormed (cat : Category) (tag : String) (children : List (Nod
 
 end Node
 
-/-- Phrasing content is always valid wherever flow content is valid. -/
-instance : Coe (Node .phrasing) (Node .flow) where
-  coe n := ⟨n.repr⟩
-
-/-- A bare `<option>` (without a wrapping `<optgroup>`) is a valid direct
-child of `<select>`. -/
-instance : Coe (Node .option) (Node .selectChild) where
-  coe n := ⟨n.repr⟩
-
-/-- A bare `<tr>` (without a wrapping `<thead>`/`<tbody>`/`<tfoot>`) is a
-valid direct child of `<table>`. -/
-instance : Coe (Node .tableRow) (Node .tableSection) where
-  coe n := ⟨n.repr⟩
+-- Instance bodies are exposed to importers, so they cannot mention `Node.mk`;
+-- each coercion goes through a named function instead.
+-- The widening functions above are named rather than written inline here:
+-- an instance body is always exposed to importers, and an exposed body may
+-- not name `Node.mk`.
+instance : Coe (Node .phrasing) (Node .flow) := ⟨Node.toFlow⟩
+instance : Coe (Node .option) (Node .selectChild) := ⟨Node.toSelectChild⟩
+instance : Coe (Node .tableRow) (Node .tableSection) := ⟨Node.toTableSection⟩
 
 end Html

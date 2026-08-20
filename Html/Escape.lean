@@ -2,6 +2,9 @@
 Copyright (c) 2026 Paul Butcher. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
+module
+
+@[expose] public section
 
 namespace Html
 
@@ -100,31 +103,27 @@ private theorem escapeChar_clean (c : Char) :
     unfold isDangerous
     simp_all
 
-private theorem join_toList (l : List String) :
-    ∀ acc : String, (l.foldl (· ++ ·) acc).toList = acc.toList ++ (l.map String.toList).flatten := by
-  induction l with
-  | nil => simp
-  | cons a as ih =>
-    intro acc
-    simp only [List.foldl_cons, List.map_cons, List.flatten_cons]
-    rw [ih (acc ++ a)]
-    simp [String.toList_append, List.append_assoc]
+/-- `String.join` over a mapped list preserves "every character satisfies `P`",
+given every individual mapped piece does. -/
+private theorem join_map_safe {α : Type} {P : Char → Prop} (f : α → String) (l : List α)
+    (h : ∀ x ∈ l, ∀ c ∈ (f x).toList, P c) : ∀ c ∈ (String.join (l.map f)).toList, P c := by
+  intro c hc
+  rw [String.toList_join] at hc
+  simp only [List.mem_flatMap, List.mem_map] at hc
+  obtain ⟨y, ⟨x, hxmem, hxeq⟩, hcy⟩ := hc
+  exact h x hxmem c (hxeq ▸ hcy)
 
 /-- **The XSS-relevant safety property:** `escape`'s output never contains a raw
 (unescaped) `<`, `>`, or `"`. This is what makes double-quote-delimited,
 escaped attribute values and escaped text content safe against markup
 breakout, given a renderer that keeps the escaped value between its two
 literal `"` delimiters. -/
-theorem escape_safe (s : String) : ∀ c ∈ (escape s).toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"' := by
-  unfold escape String.join
-  intro c hc
-  rw [join_toList] at hc
-  simp only [String.toList_empty, List.nil_append, List.mem_flatten, List.mem_map] at hc
-  obtain ⟨cs, ⟨s0, ⟨c0, _hc0mem, hs0eq⟩, hcs0eq⟩, hcmem⟩ := hc
-  have h := escapeChar_clean c0 c (hs0eq ▸ hcs0eq ▸ hcmem)
-  unfold isDangerous at h
-  simp only [Bool.or_eq_false_iff, beq_eq_false_iff_ne, ne_eq] at h
-  exact ⟨h.1.1, h.1.2, h.2⟩
+theorem escape_safe (s : String) : ∀ c ∈ (escape s).toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"' :=
+  join_map_safe escapeChar s.toList fun c0 _ c hc => by
+    have h := escapeChar_clean c0 c hc
+    unfold isDangerous at h
+    simp only [Bool.or_eq_false_iff, beq_eq_false_iff_ne, ne_eq] at h
+    exact ⟨h.1.1, h.1.2, h.2⟩
 
 private theorem sanitizeAttrName_eq (s : String) :
     sanitizeAttrName s =
@@ -159,17 +158,6 @@ private theorem append_safe {P : Char → Prop} {a b : String}
   rw [String.toList_append, List.mem_append] at hc
   exact hc.elim (ha c) (hb c)
 
-/-- `String.join` over a mapped list preserves "every character satisfies `P`",
-given every individual mapped piece does. -/
-private theorem join_map_safe {α : Type} {P : Char → Prop} (f : α → String) (l : List α)
-    (h : ∀ x ∈ l, ∀ c ∈ (f x).toList, P c) : ∀ c ∈ (String.join (l.map f)).toList, P c := by
-  unfold String.join
-  intro c hc
-  rw [join_toList] at hc
-  simp only [String.toList_empty, List.nil_append, List.mem_flatten, List.mem_map] at hc
-  obtain ⟨cs, ⟨y, ⟨x, hxmem, hxeq⟩, hycs⟩, hccs⟩ := hc
-  exact h x hxmem c (hxeq ▸ hycs ▸ hccs)
-
 private theorem AttrFragment.render_safe (f : AttrFragment) :
     ∀ c ∈ (match f with
       | .value name val => renderAttr (sanitizeAttrName name) val
@@ -201,8 +189,7 @@ a raw `<` or `>`; every name goes through `sanitizeAttrName_safe`, every
 value through `escape_safe`. This is what makes `Node.elementOf`'s
 attribute string safe to splice directly after a tag name (see
 `Node.WellFormed` in `Html/Node.lean`). -/
-theorem Attrs.render_safe (attrs : Attrs) : ∀ c ∈ (Attrs.render attrs).toList, c ≠ '<' ∧ c ≠ '>' := by
-  unfold Attrs.render
-  exact join_map_safe _ attrs fun f _ => AttrFragment.render_safe f
+theorem Attrs.render_safe (attrs : Attrs) : ∀ c ∈ (Attrs.render attrs).toList, c ≠ '<' ∧ c ≠ '>' :=
+  join_map_safe _ attrs fun f _ => AttrFragment.render_safe f
 
 end Html

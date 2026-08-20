@@ -2,10 +2,11 @@
 Copyright (c) 2026 Paul Butcher. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
+module
 
-import Html.Node
-import Html.Escape
-import Html.Attrs
+public import Html.Node
+public import Html.Escape
+public import Html.Attrs
 
 /-!
 Named tag functions, built on `Html/Node.lean`'s constructor shapes and
@@ -32,6 +33,8 @@ Scope notes:
   first inside `<table>`) is unchecked; these categories only constrain
   *which* tags are valid children, not their sequence.
 -/
+
+public section
 
 namespace Html
 

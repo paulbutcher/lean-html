@@ -2,8 +2,10 @@
 Copyright (c) 2026 Paul Butcher. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
+module
 
 import Html.Escape
+meta import Html.Escape
 
 namespace HtmlTests
 
@@ -17,26 +19,12 @@ open Html
 #guard escape "&<>\"" = "&amp;&lt;&gt;&quot;"
 #guard escape "&amp;" = "&amp;amp;"  -- already-escaped input isn't special-cased; re-escaping & first is correct
 
-private theorem foldl_append_eq (l : List String) :
-    ∀ acc : String, l.foldl (· ++ ·) acc = acc ++ l.foldl (· ++ ·) "" := by
-  induction l with
-  | nil => simp
-  | cons a as ih =>
-    intro acc
-    simp only [List.foldl_cons, String.empty_append]
-    rw [ih a, ih (acc ++ a), String.append_assoc]
-
-private theorem join_append (l1 l2 : List String) :
-    String.join (l1 ++ l2) = String.join l1 ++ String.join l2 := by
-  unfold String.join
-  rw [List.foldl_append, foldl_append_eq l2]
-
 /-- **Compositionality:** escaping two fragments and concatenating the results
 is the same as escaping their concatenation directly. No double-escaping
 and no under-escaping happens at the fragment boundary. -/
 theorem escape_append (a b : String) : escape (a ++ b) = escape a ++ escape b := by
   unfold escape
-  rw [String.toList_append, List.map_append, join_append]
+  rw [String.toList_append, List.map_append, String.join_append]
 
 /-- **The paired renderer-side invariant:** `renderAttr` always embeds the escaped
 value between two literal `"` delimiters. Combined with `escape_safe`, this rules
@@ -54,23 +42,28 @@ primitive laws pins down each record's output without enumerating its fields. -/
 theorem attrsRender_append (a b : Attrs) :
     Attrs.render (a ++ b) = Attrs.render a ++ Attrs.render b := by
   unfold Attrs.render
-  rw [List.map_append, join_append]
+  rw [List.map_append, String.join_append]
 
 theorem attrsRender_reqAttr (name value : String) :
-    Attrs.render (reqAttr name value) = renderAttr (sanitizeAttrName name) value := rfl
+    Attrs.render (reqAttr name value) = renderAttr (sanitizeAttrName name) value := by
+  simp [Attrs.render, reqAttr]
 
 theorem attrsRender_optAttr_none (name : String) :
-    Attrs.render (optAttr name none) = "" := rfl
+    Attrs.render (optAttr name none) = "" := by
+  simp [Attrs.render, optAttr]
 
 theorem attrsRender_optAttr_some (name value : String) :
-    Attrs.render (optAttr name (some value)) = renderAttr (sanitizeAttrName name) value := rfl
+    Attrs.render (optAttr name (some value)) = renderAttr (sanitizeAttrName name) value := by
+  simp [Attrs.render, optAttr]
 
 /-- A `false` boolean attribute contributes nothing at all: never `name="false"`,
 which the HTML spec reads as the attribute being *present*, hence true. -/
 theorem attrsRender_flagAttr_false (name : String) :
-    Attrs.render (flagAttr name false) = "" := rfl
+    Attrs.render (flagAttr name false) = "" := by
+  simp [Attrs.render, flagAttr]
 
 theorem attrsRender_flagAttr_true (name : String) :
-    Attrs.render (flagAttr name true) = " " ++ sanitizeAttrName name := rfl
+    Attrs.render (flagAttr name true) = " " ++ sanitizeAttrName name := by
+  simp [Attrs.render, flagAttr, toString]
 
 end HtmlTests

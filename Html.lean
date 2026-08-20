@@ -2,12 +2,13 @@
 Copyright (c) 2026 Paul Butcher. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
+module
 
-import Html.Node
-import Html.Escape
-import Html.Attrs
-import Html.Tags
-import Html.Document
+public import Html.Node
+public import Html.Escape
+public import Html.Attrs
+public import Html.Tags
+public import Html.Document
 
 /-!
 # `Html`: a typed HTML5 library
@@ -54,6 +55,18 @@ is built on, are public too, for callers that want to cite them directly
 rather than re-deriving them. The theorem covers `Node.render`; it says
 nothing about `Node.renderPretty`, whose interposed indentation would need
 a side-condition that the indentation `unit` contains no `<`/`>`.
+
+## Module structure
+
+`Html/Escape.lean` and `Html/Attrs.lean` expose their definitions, so
+downstream code can reason equationally about escaping and attribute
+rendering. The `Node` layer (`Html/Node.lean`, `Html/Tags.lean`,
+`Html/Document.lean`) does not: exposing it would mean naming `Node`'s
+private constructor, which is what keeps a `Node` unforgeable. Reason
+about that layer through the theorems it publishes (`Node.render_text`,
+`Node.render_textElement`, `Node.render_wellFormed`) rather than by
+unfolding. Compile-time evaluation (`#guard`, `#eval`) is unaffected,
+but needs `meta import`.
 
 ## The one remaining escape hatch
 
