@@ -34,11 +34,11 @@ Scope notes:
   *which* tags are valid children, not their sequence.
 -/
 
-public section
+@[expose] public section
 
 namespace Html
 
-private def combineAttrs (specific : Attrs) (rawAttrs : List (String × String)) : Attrs :=
+def combineAttrs (specific : Attrs) (rawAttrs : List (String × String)) : Attrs :=
   specific ++ rawAttrs.map fun (n, v) => .value n v
 
 -- Structure: flow content, flow children.

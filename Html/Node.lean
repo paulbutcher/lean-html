@@ -348,6 +348,17 @@ theorem element_wellFormed (cat : Category) (tag : String) (children : List (Nod
     (attrs : Attrs) (h : ∀ c ∈ children, WellFormed c) : WellFormed (element cat tag children attrs) :=
   elementOf_wellFormed cat cat tag children attrs h
 
+/-- The category coercions carry `WellFormed` across, so a phrasing child
+placed among flow content (and likewise for `<option>`/`<tr>`) needs no
+separate proof. -/
+theorem toFlow_wellFormed {n : Node .phrasing} (h : WellFormed n) : WellFormed n.toFlow := h
+
+theorem toSelectChild_wellFormed {n : Node .option} (h : WellFormed n) :
+    WellFormed n.toSelectChild := h
+
+theorem toTableSection_wellFormed {n : Node .tableRow} (h : WellFormed n) :
+    WellFormed n.toTableSection := h
+
 end Node
 
 -- Instance bodies are exposed to importers, so they cannot mention `Node.mk`;

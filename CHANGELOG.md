@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0] - 2026-08-21
+
+* `Html/Tags.lean` now exposes its definitions, so callers can prove
+  `Node.WellFormed` for trees built from the tag functions
+* `Node.toFlow_wellFormed`, `Node.toSelectChild_wellFormed`, and
+  `Node.toTableSection_wellFormed` carry `WellFormed` across the category
+  coercions
+
 ## [0.7.0] - 2026-08-20
 
 Switch to module system

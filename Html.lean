@@ -56,17 +56,25 @@ rather than re-deriving them. The theorem covers `Node.render`; it says
 nothing about `Node.renderPretty`, whose interposed indentation would need
 a side-condition that the indentation `unit` contains no `<`/`>`.
 
+Where a narrower node sits inside a wider container (a phrasing node among
+flow content, a bare `<option>` in a `<select>`, a bare `<tr>` in a
+`<table>`), `Node.toFlow_wellFormed`, `Node.toSelectChild_wellFormed`, and
+`Node.toTableSection_wellFormed` carry `WellFormed` across the coercion.
+
 ## Module structure
 
-`Html/Escape.lean` and `Html/Attrs.lean` expose their definitions, so
-downstream code can reason equationally about escaping and attribute
-rendering. The `Node` layer (`Html/Node.lean`, `Html/Tags.lean`,
-`Html/Document.lean`) does not: exposing it would mean naming `Node`'s
-private constructor, which is what keeps a `Node` unforgeable. Reason
-about that layer through the theorems it publishes (`Node.render_text`,
-`Node.render_textElement`, `Node.render_wellFormed`) rather than by
-unfolding. Compile-time evaluation (`#guard`, `#eval`) is unaffected,
-but needs `meta import`.
+`Html/Escape.lean`, `Html/Attrs.lean`, and `Html/Tags.lean` expose their
+definitions; `Html/Node.lean` and `Html/Document.lean` do not, because
+exposing a `Node` primitive would mean naming `Node`'s private
+constructor, which is what keeps a `Node` unforgeable. A tag function
+therefore unfolds to the `Node` primitive it calls, which is what lets a
+caller chain `element_wellFormed`/`elementOf_wellFormed`/
+`voidElement_wellFormed`/`textElement_wellFormed` over a tree built from
+tag functions; the primitive itself stays opaque, so `Node` remains
+unforgeable. Reason about the `Node` layer through the theorems it
+publishes (`Node.render_text`, `Node.render_textElement`,
+`Node.render_wellFormed`) rather than by unfolding. Compile-time
+evaluation (`#guard`, `#eval`) is unaffected, but needs `meta import`.
 
 ## The one remaining escape hatch
 
