@@ -17,7 +17,6 @@ def escapeChar (c : Char) : String :=
   | '"' => "&quot;"
   | c    => String.singleton c
 
-/-- Escape a whole string. -/
 def escape (s : String) : String :=
   String.join (s.toList.map escapeChar)
 

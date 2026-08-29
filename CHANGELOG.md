@@ -2,11 +2,8 @@
 
 ## [0.8.0] - 2026-08-21
 
-* `Html/Tags.lean` now exposes its definitions, so callers can prove
-  `Node.WellFormed` for trees built from the tag functions
-* `Node.toFlow_wellFormed`, `Node.toSelectChild_wellFormed`, and
-  `Node.toTableSection_wellFormed` carry `WellFormed` across the category
-  coercions
+* `Html/Tags.lean` now exposes its definitions, so callers can prove `Node.WellFormed` for trees built from the tag functions
+* `WellFormed` now carries across the category coercions
 
 ## [0.7.0] - 2026-08-20
 
@@ -18,10 +15,7 @@ Miscellaneous style and layout improvements.
 
 ## [0.5.0] - 2026-08-07
 
-* `Node.render_wellFormed` and the escaping-safety proofs it depends on
-  (`escape_safe`, `Attrs.render_safe`, ...) are now part of the public
-  `Html` API instead of living in test code, so downstream packages can
-  cite them directly
+`Node.render_wellFormed` and the escaping-safety proofs it depends on are now part of the public `Html` API, so downstream packages can cite them directly.
 
 ## [0.4.0] - 2026-08-07
 

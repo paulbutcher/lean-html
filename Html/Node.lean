@@ -71,7 +71,6 @@ def renderCompactInto (selfClosingVoid : Bool) : Repr → String → String
     let acc := children.foldl (fun acc c => renderCompactInto selfClosingVoid c acc) acc
     acc ++ s!"</{tag}>"
 
-/-- Render a node to an HTML string. -/
 def render (n : Node cat) (selfClosingVoid : Bool := false) : String :=
   renderCompactInto selfClosingVoid n.repr ""
 
@@ -117,12 +116,7 @@ def renderPretty (n : Node cat) (unit : String := "  ") (selfClosingVoid : Bool 
 category than the element itself; e.g. `p` is flow content but only
 accepts phrasing children (HTML5 disallows a `<div>` directly inside a
 `<p>`), which this makes a type error rather than a spec violation caught
-only at runtime. `attrs` (built by the tag functions in `Html/Tags.lean`
-from `HtmlAttrs.render`/`renderRawAttrs`-style helpers) is rendered to a
-string internally via `Attrs.render`, which is what makes the result
-well-formed regardless of what names/values a caller supplies; there's
-no way to hand this constructor a pre-broken attribute string the way a
-bare `attrsStr : String` parameter would have allowed.
+only at runtime.
 Children are pretty-printed one-per-line (block layout) unless `contentCat`
 is `phrasing`, true inline text-level content, so the structure-only
 categories (`listItem`, `tableRow`, ...) still get block layout like flow
@@ -362,10 +356,7 @@ theorem toTableSection_wellFormed {n : Node .tableRow} (h : WellFormed n) :
 end Node
 
 -- Instance bodies are exposed to importers, so they cannot mention `Node.mk`;
--- each coercion goes through a named function instead.
--- The widening functions above are named rather than written inline here:
--- an instance body is always exposed to importers, and an exposed body may
--- not name `Node.mk`.
+-- each coercion goes through one of the named widening functions above instead.
 instance : Coe (Node .phrasing) (Node .flow) := ⟨Node.toFlow⟩
 instance : Coe (Node .option) (Node .selectChild) := ⟨Node.toSelectChild⟩
 instance : Coe (Node .tableRow) (Node .tableSection) := ⟨Node.toTableSection⟩

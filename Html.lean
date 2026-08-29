@@ -16,113 +16,39 @@ public import Html.Document
 Renders well-formed, escaped HTML from Lean values, using Lean's type
 system to make illegal nesting unrepresentable.
 
-## Design overview
-
-`Node (cat : Category)` (`Html/Node.lean`) is a private-constructor
-wrapper around a small internal tree (`Repr`), indexed by the HTML
-content-model category it's valid in. Besides `flow`/`phrasing`, `Category`
-also carries structure-only categories (`listItem`, `option`/`selectChild`,
-`tableColumn`/`tableCell`/`tableRow`/`tableSection`) so that e.g. a `<li>`
-or `<tr>` is only accepted where HTML5 actually allows it, not anywhere
-flow/phrasing content is. A handful of `Coe` instances (phrasing → flow, a
-bare `<option>` → `<select>` child, a bare `<tr>` → `<table>` child) let the
-narrower tags appear directly among their wider container's children.
-Every tag function (`Html/Tags.lean`) is a smart constructor built from
-`Node`'s public primitives (`element`, `elementOf`, `voidElement`,
-`textElement`, `text`), so a well-typed program that builds a `Node`
-already has correct tag nesting and balanced tags. Attributes flow through
-these primitives as an `Attrs` value (`Html/Escape.lean`), an ordered
-list of name/value or bare-flag fragments, which `Attrs.render` turns
-into a string, sanitizing every name and escaping every value as it goes;
-there is no way to hand a constructor a pre-broken attribute string.
+`Node cat` (`Html/Node.lean`) is a tree indexed by the content-model
+category it's valid in, with a private constructor: the only way to build
+one is through the primitives there, or the tag functions (`Html/Tags.lean`)
+built on them, so a well-typed program already has correct nesting and
+balanced tags. Attributes reach those primitives as an `Attrs` value
+(`Html/Escape.lean`) rather than a pre-rendered string, which leaves
+`Attrs.render` as the single place names are sanitized and values escaped.
 
 ## Well-formedness
 
-`Node.render_wellFormed` (`Html/Node.lean`), part of the public API, shows
-that, given no `unsafeRaw` use, `Node.render` always produces well-formed
-HTML (`WellFormedHtml`: balanced tags, no unescaped `<`/`>` outside of tag
-delimiters). It's established compositionally; `Node.WellFormed` for a
-concrete tree follows from chaining
-`element_wellFormed`/`elementOf_wellFormed`/`voidElement_wellFormed`/
-`textElement_wellFormed`/`text_wellFormed` over however that tree was built
-(see the example in `test/HtmlTests/Node.lean`), which is also why there's
-deliberately no `unsafeRaw_wellFormed`: a `text "hi"` and an `unsafeRaw "hi"`
-can be the literal same `Node` value, so "was `unsafeRaw` used" isn't
-something a theorem can check after the fact, only something a
-*construction* can avoid. `escape_safe` and `Attrs.render_safe`
-(`Html/Escape.lean`), the escaping-safety facts `render_wellFormed`'s proof
-is built on, are public too, for callers that want to cite them directly
-rather than re-deriving them. The theorem covers `Node.render`; it says
+`Node.render_wellFormed` shows that, given no `unsafeRaw` use,
+`Node.render` always produces well-formed HTML: balanced tags, and no
+unescaped `<`/`>` outside tag delimiters. It's established
+compositionally, so `Node.WellFormed` for a concrete tree follows from
+chaining the per-constructor lemmas (`element_wellFormed`,
+`text_wellFormed`, ...) over however that tree was built, tag functions
+included; `test/HtmlTests/Node.lean` works an example. `escape_safe` and
+`Attrs.render_safe` (`Html/Escape.lean`), the escaping-safety facts that
+proof rests on, are public too.
+
+There's deliberately no `unsafeRaw_wellFormed`: a `text "hi"` and an
+`unsafeRaw "hi"` can be the literal same `Node`, so "was `unsafeRaw` used"
+isn't something a theorem can check after the fact, only something a
+*construction* can avoid. The theorem covers `Node.render`; it says
 nothing about `Node.renderPretty`, whose interposed indentation would need
-a side-condition that the indentation `unit` contains no `<`/`>`.
-
-Where a narrower node sits inside a wider container (a phrasing node among
-flow content, a bare `<option>` in a `<select>`, a bare `<tr>` in a
-`<table>`), `Node.toFlow_wellFormed`, `Node.toSelectChild_wellFormed`, and
-`Node.toTableSection_wellFormed` carry `WellFormed` across the coercion.
-
-## Module structure
-
-`Html/Escape.lean`, `Html/Attrs.lean`, and `Html/Tags.lean` expose their
-definitions; `Html/Node.lean` and `Html/Document.lean` do not, because
-exposing a `Node` primitive would mean naming `Node`'s private
-constructor, which is what keeps a `Node` unforgeable. A tag function
-therefore unfolds to the `Node` primitive it calls, which is what lets a
-caller chain `element_wellFormed`/`elementOf_wellFormed`/
-`voidElement_wellFormed`/`textElement_wellFormed` over a tree built from
-tag functions; the primitive itself stays opaque, so `Node` remains
-unforgeable. Reason about the `Node` layer through the theorems it
-publishes (`Node.render_text`, `Node.render_textElement`,
-`Node.render_wellFormed`) rather than by unfolding. Compile-time
-evaluation (`#guard`, `#eval`) is unaffected, but needs `meta import`.
+a side-condition that `unit` contains no `<`/`>`.
 
 ## The one remaining escape hatch
 
-Everything above is type-checked and (for escaping/well-formedness)
-proved safe, including `rawAttrs : List (String × String) := []` (present
-on every tag): names are sanitized via `sanitizeAttrName` and values
-escaped, so a name containing e.g. a space or `"` is neutered rather than
-breaking out of the tag. The one true escape hatch left is
-**`Node.unsafeRaw : String → Node cat`** (`Html/Node.lean`): verbatim,
-unescaped markup, trusted as-is, valid in any category. Misuse can create
-XSS vulnerabilities, and it's exactly what `Node.WellFormed` can't see
-through.
-
-## How to add a new tag
-
-1. Decide the tag's own `Category` and its children's `Category` (they
-   can differ; e.g. `p` is `flow` but only accepts `phrasing` children,
-   which is exactly what makes a `<div>` inside a `<p>` a type error). See
-   `Html/Node.lean`'s `element` (same category both sides) vs. `elementOf`
-   (different categories) vs. `voidElement` (no children) vs.
-   `textElement` (plain-text content, RCDATA-like elements such as
-   `<textarea>`).
-2. If the element needs attributes beyond the global `HtmlAttrs` (`id`,
-   `class`, `style`, `title`, `lang`, `dir`), add a typed record to
-   `Html/Attrs.lean` following `AAttrs`/`ImgAttrs`/`InputAttrs`'s pattern:
-   `extends HtmlAttrs`, required fields as plain (non-`Option`) fields,
-   everything else `Option _ := none`, and a `.render : ... → Attrs`
-   built from `reqAttr`/`optAttr`/`flagAttr`, appending `HtmlAttrs.render
-   a.toHtmlAttrs` last so the inherited global fields render too.
-3. Define the tag function in `Html/Tags.lean`: `(children) (attrs :=
-   {}) (rawAttrs := [])`, calling the right `Node` primitive from step 1
-   with `combineAttrs <attrs-rendered> rawAttrs` as the `Attrs` argument.
-4. Add a `#guard` smoke test (minimal render output) to
-   `test/HtmlTests/Tags.lean`, next to the other tags' tests. The tag name
-   is a string literal that nothing else pins, so a guard is the right
-   strength here; anything that generalizes over tags belongs in a theorem
-   instead.
-
-## How to add a new attribute
-
-Add a field to `HtmlAttrs` (global) or the relevant per-element record in
-`Html/Attrs.lean`, and wire it into that structure's `.render`. Boolean
-attributes go through `flagAttr` (bare name when `true`, absent when
-`false`, never `name="false"`); string attributes go through `optAttr`
-(when optional) or `reqAttr` (when required); both escaped,
-double-quote-delimited, via `Attrs.render`. Extend that record's single
-`#guard` in `test/HtmlTests/Attrs.lean` with the new field rather than
-adding another: the guard exists to pin the attribute's spelling and its
-place in the emission order, and `test/HtmlTests/Escape.lean` already
-proves how each primitive renders, for every name.
+`rawAttrs : List (String × String)`, present on every tag, is safe: names
+are sanitized and values escaped, so a name containing e.g. a space or `"`
+is neutered rather than breaking out of the tag. The one true escape hatch
+is `Node.unsafeRaw : String → Node cat`: verbatim, unescaped markup,
+trusted as-is, valid in any category. Misuse can create XSS
+vulnerabilities, and it's exactly what `Node.WellFormed` can't see through.
 -/

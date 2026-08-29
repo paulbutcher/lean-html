@@ -8,6 +8,7 @@ open Lake DSL
 
 package html where
   version := v!"0.8.0"
+  leanOptions := #[⟨`warningAsError, true⟩]
 
 @[default_target]
 lean_lib Html

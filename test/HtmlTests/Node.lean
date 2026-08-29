@@ -104,7 +104,7 @@ theorem render_textElement_safe (cat : Category) (tag content : String) (attrs :
   = "<div>\n  <div>\n    <p></p>\n    <p></p>\n  </div>\n</div>"
 
 -- Phrasing children are laid out inline, exactly like compact rendering,
--- regardless of how many there are or how deep the surrounding tree is --
+-- regardless of how many there are or how deep the surrounding tree is;
 -- whitespace between text/inline runs is visible in rendered output, so
 -- the pretty-printer must never inject any.
 #guard Node.renderPretty

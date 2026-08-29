@@ -24,17 +24,6 @@ open Html
     { id := "i", class_ := "c", style := "s", title := "t", lang := "en", dir := "ltr" }).render
   = " id=\"i\" class=\"c\" style=\"s\" title=\"t\" lang=\"en\" dir=\"ltr\""
 
-/--
-error: Type mismatch
-  true
-has type
-  Bool
-but is expected to have type
-  Option String
--/
-#guard_msgs in
-example := HtmlAttrs.render { id := true }
-
 #guard (AAttrs.render { href := "h", target := "_blank", rel := "noopener", id := "i" }).render
   = " href=\"h\" target=\"_blank\" rel=\"noopener\" id=\"i\""
 

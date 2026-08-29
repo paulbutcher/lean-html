@@ -14,10 +14,9 @@ public section
 namespace Html
 
 /-- Prepends `<!DOCTYPE html>` and wraps `children` in a single `<html>` element.
-`pretty` selects indented
-`unit` is the string repeated per indentation level (default two spaces)
-`selfClosingVoid` selects XHTML-style self-closing void tags (`<br />`) over the default
-HTML5 style (`<br>`) -/
+`pretty` selects indented output, with `unit` repeated per indentation level;
+`selfClosingVoid` selects XHTML-style void tags (`<br />`) over HTML5 style
+(`<br>`). -/
 def document (children : List (Node .flow))
     (lang : Option String := none) (pretty : Bool := false) (unit : String := "  ")
     (selfClosingVoid : Bool := false) : String :=
