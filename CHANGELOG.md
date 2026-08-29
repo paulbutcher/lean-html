@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.8.1] - 2026-08-29
+
+The build now treats warnings as errors, and the documentation has been tightened.
+
 ## [0.8.0] - 2026-08-21
 
 * `Html/Tags.lean` now exposes its definitions, so callers can prove `Node.WellFormed` for trees built from the tag functions
