@@ -15,14 +15,20 @@ namespace Html
 
 /-- Prepends `<!DOCTYPE html>` and wraps `children` in a single `<html>` element.
 `pretty` selects indented output, with `unit` repeated per indentation level;
-`selfClosingVoid` selects XHTML-style void tags (`<br />`) over HTML5 style
-(`<br>`). -/
+`dialect` selects HTML5 or XML serialization. The doctype is valid in both, but
+XML also needs the namespace declared on the root element, and takes the
+language from `xml:lang`, so `.xhtml` emits both spellings of a given `lang`. -/
 def document (children : List (Node .flow))
     (lang : Option String := none) (pretty : Bool := false) (unit : String := "  ")
-    (selfClosingVoid : Bool := false) : String :=
-  let attrs : Attrs := optAttr "lang" lang
+    (dialect : Dialect := .html5) : String :=
+  let attrs : Attrs :=
+    match dialect with
+    | .html5 => optAttr "lang" lang
+    | .xhtml =>
+      reqAttr "xmlns" "http://www.w3.org/1999/xhtml" ++ optAttr "lang" lang
+        ++ optAttr "xml:lang" lang
   let htmlNode : Node .flow := Node.element .flow "html" children attrs
-  if pretty then "<!DOCTYPE html>\n" ++ Node.renderPretty htmlNode unit selfClosingVoid
-  else "<!DOCTYPE html>" ++ Node.render htmlNode selfClosingVoid
+  if pretty then "<!DOCTYPE html>\n" ++ Node.renderPretty htmlNode unit dialect
+  else "<!DOCTYPE html>" ++ Node.render htmlNode dialect
 
 end Html

@@ -39,31 +39,38 @@ theorem renderAttr_safe (name value : String) :
 concatenation of its parts' renderings. Every `<Tag>Attrs.render` in
 `Html/Attrs.lean` is a `++` chain over the primitives below, so this plus the
 primitive laws pins down each record's output without enumerating its fields. -/
-theorem attrsRender_append (a b : Attrs) :
-    Attrs.render (a ++ b) = Attrs.render a ++ Attrs.render b := by
+theorem attrsRender_append (a b : Attrs) (dialect : Dialect) :
+    Attrs.render (a ++ b) dialect = Attrs.render a dialect ++ Attrs.render b dialect := by
   unfold Attrs.render
   rw [List.map_append, String.join_append]
 
-theorem attrsRender_reqAttr (name value : String) :
-    Attrs.render (reqAttr name value) = renderAttr (sanitizeAttrName name) value := by
-  simp [Attrs.render, reqAttr]
+theorem attrsRender_reqAttr (name value : String) (dialect : Dialect) :
+    Attrs.render (reqAttr name value) dialect = renderAttr (sanitizeAttrName name) value := by
+  simp [Attrs.render, reqAttr, AttrFragment.render]
 
-theorem attrsRender_optAttr_none (name : String) :
-    Attrs.render (optAttr name none) = "" := by
+theorem attrsRender_optAttr_none (name : String) (dialect : Dialect) :
+    Attrs.render (optAttr name none) dialect = "" := by
   simp [Attrs.render, optAttr]
 
-theorem attrsRender_optAttr_some (name value : String) :
-    Attrs.render (optAttr name (some value)) = renderAttr (sanitizeAttrName name) value := by
-  simp [Attrs.render, optAttr]
+theorem attrsRender_optAttr_some (name value : String) (dialect : Dialect) :
+    Attrs.render (optAttr name (some value)) dialect = renderAttr (sanitizeAttrName name) value := by
+  simp [Attrs.render, optAttr, AttrFragment.render]
 
 /-- A `false` boolean attribute contributes nothing at all: never `name="false"`,
 which the HTML spec reads as the attribute being *present*, hence true. -/
-theorem attrsRender_flagAttr_false (name : String) :
-    Attrs.render (flagAttr name false) = "" := by
+theorem attrsRender_flagAttr_false (name : String) (dialect : Dialect) :
+    Attrs.render (flagAttr name false) dialect = "" := by
   simp [Attrs.render, flagAttr]
 
-theorem attrsRender_flagAttr_true (name : String) :
-    Attrs.render (flagAttr name true) = " " ++ sanitizeAttrName name := by
-  simp [Attrs.render, flagAttr, toString]
+theorem attrsRender_flagAttr_true_html5 (name : String) :
+    Attrs.render (flagAttr name true) .html5 = " " ++ sanitizeAttrName name := by
+  simp [Attrs.render, flagAttr, AttrFragment.render, toString]
+
+/-- The same attribute in XML, where a bare name isn't well-formed: HTML5 reads
+`name="name"` as present, so the two renderings agree on meaning. -/
+theorem attrsRender_flagAttr_true_xhtml (name : String) :
+    Attrs.render (flagAttr name true) .xhtml
+      = renderAttr (sanitizeAttrName name) (sanitizeAttrName name) := by
+  simp [Attrs.render, flagAttr, AttrFragment.render]
 
 end HtmlTests

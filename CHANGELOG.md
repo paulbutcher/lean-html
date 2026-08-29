@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.0] - 2026-08-29
+
+* Optional XML output: the new `Dialect` argument to `render`, `renderPretty`, and `document` replaces `selfClosingVoid`, and under `.xhtml` closes every tag, gives every boolean attribute a value, and declares the XHTML namespace
+* `Node.render_wellFormed` now proves the attribute run well-formed too, so at `.xhtml` it says the output is XML
+* Attribute names starting with a digit, `-`, or `.` are prefixed with `_`, those being legal in a name but not first
+
 ## [0.8.1] - 2026-08-29
 
 The build now treats warnings as errors, and the documentation has been tightened.

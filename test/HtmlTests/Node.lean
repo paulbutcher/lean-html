@@ -26,7 +26,7 @@ example : Node.WellFormed
   · exact Node.text_wellFormed "hi"
   · exact Node.element_wellFormed .flow "p" [] [] (by simp)
 
-example : WellFormedHtml false (Node.render
+example : WellFormedHtml .html5 (Node.render
     (Node.element .flow "div" [Node.text "hi", Node.element .flow "p" ([] : List (Node .flow))])) :=
   Node.render_wellFormed _ (by
     apply Node.element_wellFormed
@@ -36,23 +36,39 @@ example : WellFormedHtml false (Node.render
     · exact Node.text_wellFormed "hi"
     · exact Node.element_wellFormed .flow "p" [] [] (by simp))
 
+/-- The same theorem at `.xhtml`, where `WellFormedHtml` additionally rules out
+an unclosed void tag and a bare attribute: rendering a tree built without
+`unsafeRaw` in that dialect yields well-formed XML, void children and boolean
+attributes included. -/
+example : WellFormedHtml .xhtml (Node.render
+    (Node.element .flow "div"
+      [Node.text "hi", Node.voidElement .flow "br" (flagAttr "hidden" true)]) .xhtml) :=
+  Node.render_wellFormed _ (by
+    apply Node.element_wellFormed
+    intro c hc
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hc
+    rcases hc with hc | hc <;> subst hc
+    · exact Node.text_wellFormed "hi"
+    · exact Node.voidElement_wellFormed .flow "br" _) .xhtml
+
 /-- **Paired renderer-side invariant for `text`:** a `text` leaf renders to exactly
 its escaped content, with nothing else spliced in. Combined with `escape_safe`,
 a `text` leaf can never inject a raw `<`/`>` into its surrounding markup. -/
-theorem render_text_safe (cat : Category) (s : String) :
-    Node.render (Node.text (cat := cat) s) = escape s ∧
+theorem render_text_safe (cat : Category) (s : String) (dialect : Dialect) :
+    Node.render (Node.text (cat := cat) s) dialect = escape s ∧
       ∀ c ∈ (escape s).toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"' :=
-  ⟨Node.render_text s, escape_safe s⟩
+  ⟨Node.render_text s dialect, escape_safe s⟩
 
 /-- **Paired renderer-side invariant for `textElement`:** the escaped content is
 always embedded between the literal opening and closing tags. Combined with
 `escape_safe`, the content can never contain a raw `<`/`>`, so it can't
 prematurely close `</tag>` or open nested markup (the RCDATA safety property). -/
-theorem render_textElement_safe (cat : Category) (tag content : String) (attrs : Attrs) :
-    Node.render (Node.textElement cat tag content attrs)
-      = s!"<{tag}{Attrs.render attrs}>" ++ escape content ++ s!"</{tag}>" ∧
+theorem render_textElement_safe (cat : Category) (tag content : String) (attrs : Attrs)
+    (dialect : Dialect) :
+    Node.render (Node.textElement cat tag content attrs) dialect
+      = s!"<{tag}{Attrs.render attrs dialect}>" ++ escape content ++ s!"</{tag}>" ∧
       ∀ c ∈ (escape content).toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"' :=
-  ⟨Node.render_textElement cat tag content attrs, escape_safe content⟩
+  ⟨Node.render_textElement cat tag content attrs dialect, escape_safe content⟩
 
 #guard Node.render (Node.element .flow "div" []) = "<div></div>"
 #guard Node.render (Node.element .flow "div" [Node.element .flow "p" []]) = "<div><p></p></div>"
@@ -65,13 +81,18 @@ theorem render_textElement_safe (cat : Category) (tag content : String) (attrs :
 -- String literals coerce directly to a `text` leaf (no `Node.text` needed).
 #guard Node.render (Node.element .flow "p" [("hi" : Node .flow)]) = "<p>hi</p>"
 
--- `selfClosingVoid` opts into XHTML-style void tags, and leaves everything
--- else (including non-void elements) untouched.
-#guard Node.render (Node.voidElement .flow "br") (selfClosingVoid := true) = "<br />"
+-- `.xhtml` closes void tags and gives every boolean attribute a value, and
+-- leaves everything else (including non-void elements) untouched.
+#guard Node.render (Node.voidElement .flow "br") (dialect := .xhtml) = "<br />"
 #guard Node.render
-    (Node.element .flow "div" [(Node.voidElement .flow "hr" : Node .flow)]) (selfClosingVoid := true)
+    (Node.element .flow "div" [(Node.voidElement .flow "hr" : Node .flow)]) (dialect := .xhtml)
   = "<div><hr /></div>"
-#guard Node.renderPretty (Node.voidElement .flow "br") (selfClosingVoid := true) = "<br />"
+#guard Node.renderPretty (Node.voidElement .flow "br") (dialect := .xhtml) = "<br />"
+#guard Node.render (Node.voidElement .flow "input" (flagAttr "disabled" true)) = "<input disabled>"
+#guard Node.render (Node.voidElement .flow "input" (flagAttr "disabled" true)) (dialect := .xhtml)
+  = "<input disabled=\"disabled\" />"
+#guard Node.render (Node.element .flow "details" [] (flagAttr "open" true)) (dialect := .xhtml)
+  = "<details open=\"open\"></details>"
 
 -- Pretty-printing: empty and void elements stay one line.
 #guard Node.renderPretty (Node.element .flow "div" []) = "<div></div>"

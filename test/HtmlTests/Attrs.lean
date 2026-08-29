@@ -174,5 +174,14 @@ open Html
   = " evil_onmouseover__alert_1_=\"x\""  -- disallowed chars in the name are sanitized, not passed through
 #guard renderRawAttrs [("   ", "x")] = " ___=\"x\""  -- each disallowed char becomes its own "_"
 #guard renderRawAttrs [("", "x")] = " _=\"x\""  -- an empty name sanitizes to nothing, falls back to "_"
+-- A digit, `-`, and `.` are legal in an attribute name but not as its first
+-- character, so a name starting with one gains a `_` rather than losing it.
+#guard renderRawAttrs [("1st", "x")] = " _1st=\"x\""
+#guard renderRawAttrs [("-webkit", "x")] = " _-webkit=\"x\""
+#guard renderRawAttrs [("data-1", "x")] = " data-1=\"x\""
+
+-- In XML every attribute carries a value, boolean flags included.
+#guard (InputAttrs.render { checked := true }).render .xhtml
+  = " type=\"text\" checked=\"checked\""
 
 end HtmlTests
