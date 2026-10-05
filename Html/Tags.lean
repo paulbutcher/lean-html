@@ -208,9 +208,11 @@ def code (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
   Node.element .phrasing "code" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
-def a (attrs : AAttrs) (children : List (Node .phrasing))
-    (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "a" children (combineAttrs (AAttrs.render attrs) rawAttrs)
+/-- `a` has HTML5's "transparent" content model, like `ins`/`del`: inside a `<p>` it is phrasing
+content around phrasing content, and inside a `<div>` it can wrap a heading and a paragraph. -/
+def a (attrs : AAttrs) (children : List (Node cat))
+    (rawAttrs : List (String × String) := []) : Node cat :=
+  Node.element cat "a" children (combineAttrs (AAttrs.render attrs) rawAttrs)
 
 def strong (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=

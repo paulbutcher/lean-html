@@ -57,7 +57,7 @@ open Html
   = "<canvas width=\"300\" height=\"150\"></canvas>"
 #guard Node.render (slot []) = "<slot></slot>"
 #guard Node.render (slot [] { name := "header" }) = "<slot name=\"header\"></slot>"
-#guard Node.render (a { href := "x" } []) = "<a href=\"x\"></a>"
+#guard Node.render (a (cat := .phrasing) { href := "x" } []) = "<a href=\"x\"></a>"
 #guard Node.render (strong []) = "<strong></strong>"
 #guard Node.render (em []) = "<em></em>"
 #guard Node.render (small []) = "<small></small>"
@@ -278,14 +278,21 @@ example : Node .tableRow := tr [div []]
 
 #guard Node.render (div [] (attrs := { id := "x", class_ := "y" }))
   = "<div id=\"x\" class=\"y\"></div>"
-#guard Node.render (a (attrs := { href := "/x", target := "_blank" }) [Node.text "go"])
+#guard Node.render (a (cat := .phrasing) (attrs := { href := "/x", target := "_blank" }) [Node.text "go"])
   = "<a href=\"/x\" target=\"_blank\">go</a>"
 
 -- Element-specific attrs and global `HtmlAttrs` fields combine in one record.
 #guard Node.render (textarea "hi" { rows := "4", class_ := "message-input" })
   = "<textarea rows=\"4\" class=\"message-input\">hi</textarea>"
-#guard Node.render (a { href := "/x", class_ := "link" } [Node.text "go"])
+#guard Node.render (a (cat := .phrasing) { href := "/x", class_ := "link" } [Node.text "go"])
   = "<a href=\"/x\" class=\"link\">go</a>"
+
+-- `a` is transparent: it wraps block content where flow content is allowed, and stays phrasing
+-- content inside a paragraph.
+#guard Node.render (div [ a { href := "/post" } [ h1 [ "Title" ], p [ "Summary" ] ] ]) =
+  "<div><a href=\"/post\"><h1>Title</h1><p>Summary</p></a></div>"
+#guard Node.render (p [ "See ", a { href := "/x" } [ em [ "this" ] ], "." ]) =
+  "<p>See <a href=\"/x\"><em>this</em></a>.</p>"
 
 #guard Node.render (p [Node.text "Some ", del ["old"], Node.text " ", ins ["new"], Node.text " text"])
   = "<p>Some <del>old</del> <ins>new</ins> text</p>"
