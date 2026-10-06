@@ -115,21 +115,21 @@ def base (attrs : BaseAttrs := {}) (rawAttrs : List (String × String) := []) : 
 def script (attrs : ScriptAttrs) (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.element .flow "script" [] (combineAttrs (ScriptAttrs.render attrs) rawAttrs)
 
-def noscript (children : List (Node .flow)) (attrs : HtmlAttrs := {})
-    (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "noscript" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+def noscript {cat : Category} [Transparent cat] (children : List (Node cat))
+    (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node cat :=
+  Node.transparentElement cat "noscript" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def template (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.element .flow "template" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
-def canvas (children : List (Node .flow)) (attrs : CanvasAttrs := {})
-    (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "canvas" children (combineAttrs (CanvasAttrs.render attrs) rawAttrs)
+def canvas {cat : Category} [Transparent cat] (children : List (Node cat))
+    (attrs : CanvasAttrs := {}) (rawAttrs : List (String × String) := []) : Node cat :=
+  Node.transparentElement cat "canvas" children (combineAttrs (CanvasAttrs.render attrs) rawAttrs)
 
-def slot (children : List (Node .phrasing)) (attrs : SlotAttrs := {})
-    (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "slot" children (combineAttrs (SlotAttrs.render attrs) rawAttrs)
+def slot {cat : Category} [Transparent cat] (children : List (Node cat))
+    (attrs : SlotAttrs := {}) (rawAttrs : List (String × String) := []) : Node cat :=
+  Node.transparentElement cat "slot" children (combineAttrs (SlotAttrs.render attrs) rawAttrs)
 
 def p (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
@@ -208,9 +208,9 @@ def code (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
   Node.element .phrasing "code" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
-def a (attrs : AAttrs) (children : List (Node .phrasing))
-    (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "a" children (combineAttrs (AAttrs.render attrs) rawAttrs)
+def a {cat : Category} [Transparent cat] (attrs : AAttrs) (children : List (Node cat))
+    (rawAttrs : List (String × String) := []) : Node cat :=
+  Node.transparentElement cat "a" children (combineAttrs (AAttrs.render attrs) rawAttrs)
 
 def strong (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
@@ -315,19 +315,13 @@ def data (attrs : DataAttrs) (children : List (Node .phrasing))
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
   Node.element .phrasing "data" children (combineAttrs (DataAttrs.render attrs) rawAttrs)
 
-/-- `ins`/`del` have HTML5's "transparent" content model: each takes on
-whatever category its surrounding context allows, rather than having a
-fixed category of its own. `cat` is left as a free, auto-bound implicit.
-This makes `ins`/`del` usable directly inside a `<p>` (phrasing context)
-or a `<div>` (flow context) alike, with no manual type ascription needed
-at either call site. -/
-def ins (children : List (Node cat)) (attrs : InsDelAttrs := {})
-    (rawAttrs : List (String × String) := []) : Node cat :=
-  Node.element cat "ins" children (combineAttrs (InsDelAttrs.render attrs) rawAttrs)
+def ins {cat : Category} [Transparent cat] (children : List (Node cat))
+    (attrs : InsDelAttrs := {}) (rawAttrs : List (String × String) := []) : Node cat :=
+  Node.transparentElement cat "ins" children (combineAttrs (InsDelAttrs.render attrs) rawAttrs)
 
-def del (children : List (Node cat)) (attrs : InsDelAttrs := {})
-    (rawAttrs : List (String × String) := []) : Node cat :=
-  Node.element cat "del" children (combineAttrs (InsDelAttrs.render attrs) rawAttrs)
+def del {cat : Category} [Transparent cat] (children : List (Node cat))
+    (attrs : InsDelAttrs := {}) (rawAttrs : List (String × String) := []) : Node cat :=
+  Node.transparentElement cat "del" children (combineAttrs (InsDelAttrs.render attrs) rawAttrs)
 
 def br (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node .phrasing :=
   Node.voidElement .phrasing "br" (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
@@ -424,21 +418,21 @@ def iframe (attrs : IframeAttrs) (children : List (Node .flow) := [])
 def embed (attrs : EmbedAttrs := {}) (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.voidElement .flow "embed" (combineAttrs (EmbedAttrs.render attrs) rawAttrs)
 
-def object (attrs : ObjectAttrs := {}) (children : List (Node .flow) := [])
-    (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "object" children (combineAttrs (ObjectAttrs.render attrs) rawAttrs)
+def object {cat : Category} [Transparent cat] (attrs : ObjectAttrs := {})
+    (children : List (Node cat) := []) (rawAttrs : List (String × String) := []) : Node cat :=
+  Node.transparentElement cat "object" children (combineAttrs (ObjectAttrs.render attrs) rawAttrs)
 
-def video (children : List (Node .flow) := []) (attrs : VideoAttrs := {})
-    (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "video" children (combineAttrs (VideoAttrs.render attrs) rawAttrs)
+def video {cat : Category} [Transparent cat] (children : List (Node cat) := [])
+    (attrs : VideoAttrs := {}) (rawAttrs : List (String × String) := []) : Node cat :=
+  Node.transparentElement cat "video" children (combineAttrs (VideoAttrs.render attrs) rawAttrs)
 
-def audio (children : List (Node .flow) := []) (attrs : AudioAttrs := {})
-    (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "audio" children (combineAttrs (AudioAttrs.render attrs) rawAttrs)
+def audio {cat : Category} [Transparent cat] (children : List (Node cat) := [])
+    (attrs : AudioAttrs := {}) (rawAttrs : List (String × String) := []) : Node cat :=
+  Node.transparentElement cat "audio" children (combineAttrs (AudioAttrs.render attrs) rawAttrs)
 
-def map (attrs : MapAttrs) (children : List (Node .flow) := [])
-    (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "map" children (combineAttrs (MapAttrs.render attrs) rawAttrs)
+def map {cat : Category} [Transparent cat] (attrs : MapAttrs)
+    (children : List (Node cat) := []) (rawAttrs : List (String × String) := []) : Node cat :=
+  Node.transparentElement cat "map" children (combineAttrs (MapAttrs.render attrs) rawAttrs)
 
 def area (attrs : AreaAttrs := {}) (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.voidElement .flow "area" (combineAttrs (AreaAttrs.render attrs) rawAttrs)

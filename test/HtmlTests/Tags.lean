@@ -50,14 +50,14 @@ open Html
 #guard Node.render (code []) = "<code></code>"
 #guard Node.render (base) = "<base>"
 #guard Node.render (base { href := "/", target := "_blank" }) = "<base href=\"/\" target=\"_blank\">"
-#guard Node.render (noscript []) = "<noscript></noscript>"
+#guard Node.render (noscript (cat := .flow) []) = "<noscript></noscript>"
 #guard Node.render (template []) = "<template></template>"
-#guard Node.render (canvas []) = "<canvas></canvas>"
-#guard Node.render (canvas [] { width := "300", height := "150" })
+#guard Node.render (canvas (cat := .flow) []) = "<canvas></canvas>"
+#guard Node.render (canvas (cat := .flow) [] { width := "300", height := "150" })
   = "<canvas width=\"300\" height=\"150\"></canvas>"
-#guard Node.render (slot []) = "<slot></slot>"
-#guard Node.render (slot [] { name := "header" }) = "<slot name=\"header\"></slot>"
-#guard Node.render (a { href := "x" } []) = "<a href=\"x\"></a>"
+#guard Node.render (slot (cat := .phrasing) []) = "<slot></slot>"
+#guard Node.render (slot (cat := .phrasing) [] { name := "header" }) = "<slot name=\"header\"></slot>"
+#guard Node.render (a (cat := .phrasing) { href := "x" } []) = "<a href=\"x\"></a>"
 #guard Node.render (strong []) = "<strong></strong>"
 #guard Node.render (em []) = "<em></em>"
 #guard Node.render (small []) = "<small></small>"
@@ -138,15 +138,15 @@ open Html
 #guard Node.render (iframe { src := "/embed" }) = "<iframe src=\"/embed\"></iframe>"
 #guard Node.render (embed) = "<embed>"
 #guard Node.render (embed { src := "a.swf" }) = "<embed src=\"a.swf\">"
-#guard Node.render (object) = "<object></object>"
-#guard Node.render (object { data := "a.pdf" }) = "<object data=\"a.pdf\"></object>"
-#guard Node.render (video) = "<video></video>"
-#guard Node.render (video (attrs := { src := "a.mp4", controls := true }))
+#guard Node.render (object (cat := .flow)) = "<object></object>"
+#guard Node.render (object (cat := .flow) { data := "a.pdf" }) = "<object data=\"a.pdf\"></object>"
+#guard Node.render (video (cat := .flow)) = "<video></video>"
+#guard Node.render (video (cat := .flow) (attrs := { src := "a.mp4", controls := true }))
   = "<video src=\"a.mp4\" controls></video>"
-#guard Node.render (audio) = "<audio></audio>"
-#guard Node.render (audio (attrs := { src := "a.mp3", controls := true }))
+#guard Node.render (audio (cat := .flow)) = "<audio></audio>"
+#guard Node.render (audio (cat := .flow) (attrs := { src := "a.mp3", controls := true }))
   = "<audio src=\"a.mp3\" controls></audio>"
-#guard Node.render (map { name := "sitemap" }) = "<map name=\"sitemap\"></map>"
+#guard Node.render (map (cat := .flow) { name := "sitemap" }) = "<map name=\"sitemap\"></map>"
 #guard Node.render (area) = "<area>"
 #guard Node.render (area { href := "#a", alt := "Area A" }) = "<area href=\"#a\" alt=\"Area A\">"
 #guard Node.render (table []) = "<table></table>"
@@ -274,22 +274,52 @@ example : Node .tableRow := tr [div []]
 #guard Node.renderPretty (div [(pre [Node.text "line1\n  line2"] : Node .flow)])
   = "<div>\n  <pre>line1\n  line2</pre>\n</div>"
 #guard Node.renderPretty (div [(textarea "line1\nline2  spaced" : Node .flow)])
-  = "<div>\n  <textarea>line1\nline2  spaced</textarea>\n</div>"
+  = "<div><textarea>line1\nline2  spaced</textarea></div>"
 
 #guard Node.render (div [] (attrs := { id := "x", class_ := "y" }))
   = "<div id=\"x\" class=\"y\"></div>"
-#guard Node.render (a (attrs := { href := "/x", target := "_blank" }) [Node.text "go"])
+#guard Node.render (a (cat := .phrasing) (attrs := { href := "/x", target := "_blank" }) [Node.text "go"])
   = "<a href=\"/x\" target=\"_blank\">go</a>"
 
 -- Element-specific attrs and global `HtmlAttrs` fields combine in one record.
 #guard Node.render (textarea "hi" { rows := "4", class_ := "message-input" })
   = "<textarea rows=\"4\" class=\"message-input\">hi</textarea>"
-#guard Node.render (a { href := "/x", class_ := "link" } [Node.text "go"])
+#guard Node.render (a (cat := .phrasing) { href := "/x", class_ := "link" } [Node.text "go"])
   = "<a href=\"/x\" class=\"link\">go</a>"
 
 #guard Node.render (p [Node.text "Some ", del ["old"], Node.text " ", ins ["new"], Node.text " text"])
   = "<p>Some <del>old</del> <ins>new</ins> text</p>"
 #guard Node.render (div [ins [p ["whole paragraph added"]]])
   = "<div><ins><p>whole paragraph added</p></ins></div>"
+
+-- A transparent element in flow context, holding only phrasing content, is
+-- laid out inline: block layout would put whitespace between its children.
+#guard let n : Node .flow := ins ["Read ", em ["more"]]
+  n.renderPretty = n.render
+
+-- Negative-compile regression: a transparent element is itself flow or
+-- phrasing content, so it can't carry a `<li>` into a `<ul>`.
+/--
+error: failed to synthesize instance of type class
+  Transparent Category.listItem
+
+Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+-/
+#guard_msgs in
+example : Node .flow := ul [ins [li ["x"]]]
+
+-- Every transparent element takes on either category from its context.
+example : Node .flow := div [a { href := "/post" } [h1 ["Title"], p ["Summary"]]]
+example : Node .flow := div [slot [p ["Fallback"]]]
+example : Node .flow :=
+  p [canvas [], video [], audio [], object, map { name := "m" } [img { src := "m.png", alt := "Map" }],
+    noscript ["Enable scripts"]]
+
+-- Whitespace between phrasing siblings renders, so pretty-printing puts none
+-- there, even among block siblings.
+#guard let n := div ["Read ", em ["more"]]
+  n.renderPretty = n.render
+#guard Node.renderPretty (div ["Read ", em ["more"], p ["Next"]])
+  = "<div>\n  Read <em>more</em>\n  <p>Next</p>\n</div>"
 
 end HtmlTests

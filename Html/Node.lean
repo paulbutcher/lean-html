@@ -33,6 +33,15 @@ inductive Category where
   | tableRow
   | tableSection
 
+/-- The categories an element with HTML5's transparent content model (`a`, `ins`, `canvas`,
+...) can take on from its context, so it can sit in a `<p>` or wrap a `<p>` in a `<div>`. Such
+an element is itself flow or phrasing content, so it can't stand in for a `<li>`, `<tr>`, or
+`<option>`. -/
+class Transparent (cat : Category) : Prop
+
+instance : Transparent .flow := ⟨⟩
+instance : Transparent .phrasing := ⟨⟩
+
 /-- Internal tree representation. Attributes are held as an `Attrs` list
 rather than a rendered string, so that the dialect can still decide how
 they're serialized when the tree is rendered. Not `private`, so that
@@ -44,11 +53,14 @@ inductive Repr where
   | void (tag : String) (attrs : Attrs)
   | rawText (tag : String) (attrs : Attrs) (content : String)
   | elem (tag : String) (attrs : Attrs) (children : List Repr) (block : Bool)
+  /-- Adjacent phrasing siblings among block content, rendered as just their concatenation;
+  the pretty-printer keeps them on one line. -/
+  | run (children : List Repr)
 
 /-- A well-typed piece of rendered HTML, indexed by the content-model
 category it's valid in. The constructor is private: the only way to build
-a `Node` is through `element`/`elementOf`/`voidElement`/`textElement`/
-`text`/`unsafeRaw` (and, on top of those, the tag functions in
+a `Node` is through `element`/`elementOf`/`transparentElement`/`voidElement`/
+`textElement`/`text`/`unsafeRaw` (and, on top of those, the tag functions in
 `Html/Tags.lean`), which is what makes content-model correctness a
 corollary of type soundness. The `repr` field is readable (needed by the
 same proofs `Repr` is exposed for) but not writable; `mk` stays private,
@@ -56,6 +68,9 @@ so a `Node` still can't be fabricated from an arbitrary `Repr`. -/
 structure Node (cat : Category) where
   private mk ::
   repr : Repr
+  /-- Always true of a `Node .phrasing`, but a `Node .flow` may have been widened from one,
+  and its parent's layout needs to know which. -/
+  isPhrasing : Bool
 
 namespace Node
 
@@ -71,6 +86,7 @@ def renderCompactInto (dialect : Dialect) : Repr → String → String
     let acc := acc ++ s!"<{tag}{Attrs.render attrs dialect}>"
     let acc := children.foldl (fun acc c => renderCompactInto dialect c acc) acc
     acc ++ s!"</{tag}>"
+  | .run children, acc => children.foldl (fun acc c => renderCompactInto dialect c acc) acc
 
 def render (n : Node cat) (dialect : Dialect := .html5) : String :=
   renderCompactInto dialect n.repr ""
@@ -95,39 +111,54 @@ private def renderPrettyInto (unit : String) (dialect : Dialect) (r : Repr) (dep
     acc ++ s!"</{tag}>"
   | .elem tag attrs [] true =>
     acc ++ s!"<{tag}{Attrs.render attrs dialect}></{tag}>"
-  | .elem tag attrs [.leaf s] true =>
-    -- A lone text child isn't worth exploding onto its own line.
-    acc ++ s!"<{tag}{Attrs.render attrs dialect}>{s}</{tag}>"
   | .elem tag attrs [c] true =>
     let acc := acc ++ s!"<{tag}{Attrs.render attrs dialect}>\n" ++ indent (depth + 1) unit
     let acc := renderPrettyInto unit dialect c (depth + 1) acc
     acc ++ "\n" ++ indent depth unit ++ s!"</{tag}>"
   | .elem tag attrs (c :: cs) true =>
-    -- Block layout (flow children), more than one: one child per line.
+    -- Block layout, more than one child: one per line.
     let acc := acc ++ s!"<{tag}{Attrs.render attrs dialect}>\n" ++ indent (depth + 1) unit
     let acc := renderPrettyInto unit dialect c (depth + 1) acc
     let acc := cs.foldl (fun acc c =>
       renderPrettyInto unit dialect c (depth + 1) (acc ++ "\n" ++ indent (depth + 1) unit)) acc
     acc ++ "\n" ++ indent depth unit ++ s!"</{tag}>"
+  | .run children => children.foldl (fun acc c => renderPrettyInto unit dialect c depth acc) acc
 termination_by sizeOf r
 
 /-- Render a node as indented, human-readable HTML.
-`unit` is the string repeated per indentation level (default two spaces). -/
+`unit` is the string repeated per indentation level (default two spaces). Line breaks go only
+beside a child that isn't phrasing content, since between phrasing siblings they would
+render. -/
 def renderPretty (n : Node cat) (unit : String := "  ") (dialect : Dialect := .html5) : String :=
   renderPrettyInto unit dialect n.repr 0 ""
+
+private def flushRun : List Repr → List Repr
+  | [] => []
+  | [r] => [r]
+  | rs => [.run rs.reverse]
+
+/-- `pending` holds the current run of phrasing siblings, most recent first. -/
+private def gatherRuns (pending : List Repr) : List (Node cat) → List Repr
+  | [] => flushRun pending
+  | c :: cs =>
+    if c.isPhrasing then gatherRuns (c.repr :: pending) cs
+    else flushRun pending ++ c.repr :: gatherRuns [] cs
+
+/-- Inline layout if every child is phrasing content, else one line per child, except that
+adjacent phrasing children share a line: whitespace between phrasing siblings renders, so the
+pretty-printer must never put any there. -/
+private def layout (tag : String) (attrs : Attrs) (children : List (Node cat)) : Repr :=
+  if children.all (·.isPhrasing) then .elem tag attrs (children.map (·.repr)) false
+  else .elem tag attrs (gatherRuns [] children) true
 
 /-- A normal element whose children may be a *different*, narrower
 category than the element itself; e.g. `p` is flow content but only
 accepts phrasing children (HTML5 disallows a `<div>` directly inside a
 `<p>`), which this makes a type error rather than a spec violation caught
-only at runtime.
-Children are pretty-printed one-per-line (block layout) unless `contentCat`
-is `phrasing`, true inline text-level content, so the structure-only
-categories (`listItem`, `tableRow`, ...) still get block layout like flow
-content does, and only genuine prose stays inline. -/
+only at runtime. -/
 def elementOf (cat contentCat : Category) (tag : String)
     (children : List (Node contentCat)) (attrs : Attrs := []) : Node cat :=
-  ⟨.elem tag attrs (children.map (·.repr)) (!(contentCat matches .phrasing))⟩
+  ⟨layout tag attrs children, cat matches .phrasing⟩
 
 /-- A normal element whose children are the *same* category as the
 element itself (e.g. `div`: a flow element containing flow content). -/
@@ -135,10 +166,17 @@ def element (cat : Category) (tag : String) (children : List (Node cat))
     (attrs : Attrs := []) : Node cat :=
   elementOf cat cat tag children attrs
 
+/-- An element with HTML5's transparent content model (`ins`, `del`, ...), which takes on the
+category of its context. One holding only phrasing content is phrasing content itself, even
+among flow content. -/
+def transparentElement (cat : Category) [Transparent cat] (tag : String)
+    (children : List (Node cat)) (attrs : Attrs := []) : Node cat :=
+  ⟨layout tag attrs children, children.all (·.isPhrasing)⟩
+
 /-- A void element: takes no children and has no closing tag (`<br>`,
 `<img>`, `<input>`, ...), self-closing (`<br />`) under `.xhtml`. -/
 def voidElement (cat : Category) (tag : String) (attrs : Attrs := []) : Node cat :=
-  ⟨.void tag attrs⟩
+  ⟨.void tag attrs, cat matches .phrasing⟩
 
 /-- An element whose content model is plain text, not nested elements
 (`<textarea>`, `<option>`, which are RCDATA-like in HTML5: entities are
@@ -147,11 +185,11 @@ nested markup, so typing their content as `List (Node cat)` would be
 misleading). -/
 def textElement (cat : Category) (tag : String) (content : String)
     (attrs : Attrs := []) : Node cat :=
-  ⟨.rawText tag attrs (escape content)⟩
+  ⟨.rawText tag attrs (escape content), cat matches .phrasing⟩
 
 /-- A leaf of escaped text content, valid in any category (plain text is
 both flow and phrasing content). -/
-def text (s : String) : Node cat := ⟨.leaf (escape s)⟩
+def text (s : String) : Node cat := ⟨.leaf (escape s), true⟩
 
 /-- String literals can stand directly for a `text` leaf wherever a `Node`
 is expected (e.g. among a tag's children), so callers write `"hi"` instead
@@ -162,7 +200,9 @@ instance : Coe String (Node cat) where
 /-- Verbatim, unescaped markup, trusted as-is, usable as content of any
 category.
 Misuse can lead to XSS issues. -/
-def unsafeRaw (s : String) : Node cat := ⟨.leaf s⟩
+def unsafeRaw (s : String) : Node cat :=
+  -- Counted as phrasing whatever it holds, since inline layout never alters what renders.
+  ⟨.leaf s, true⟩
 
 /-- A `text` leaf renders to exactly its escaped content, with nothing
 else spliced in. -/
@@ -180,15 +220,15 @@ theorem render_textElement (cat : Category) (tag content : String) (attrs : Attr
   simp [render, textElement, renderCompactInto, toString, String.append_assoc]
 
 /-- Phrasing content is always valid wherever flow content is valid. -/
-def toFlow (n : Node .phrasing) : Node .flow := ⟨n.repr⟩
+def toFlow (n : Node .phrasing) : Node .flow := ⟨n.repr, n.isPhrasing⟩
 
 /-- A bare `<option>` (without a wrapping `<optgroup>`) is a valid direct
 child of `<select>`. -/
-def toSelectChild (n : Node .option) : Node .selectChild := ⟨n.repr⟩
+def toSelectChild (n : Node .option) : Node .selectChild := ⟨n.repr, n.isPhrasing⟩
 
 /-- A bare `<tr>` (without a wrapping `<thead>`/`<tbody>`/`<tfoot>`) is a
 valid direct child of `<table>`. -/
-def toTableSection (n : Node .tableRow) : Node .tableSection := ⟨n.repr⟩
+def toTableSection (n : Node .tableRow) : Node .tableSection := ⟨n.repr, n.isPhrasing⟩
 
 end Node
 
@@ -251,6 +291,10 @@ private theorem renderCompactInto_append (dialect : Dialect) (r : Repr) (acc : S
         foldl_rebase (renderCompactInto dialect) children hg
           (s!"<{tag}{Attrs.render attrs dialect}>")]
     simp [String.append_assoc]
+  | .run children => by
+    simp only [renderCompactInto]
+    exact foldl_rebase (renderCompactInto dialect) children
+      (fun c _ s => renderCompactInto_append dialect c s) acc
 
 /-- A `Repr` built without `unsafeRaw`: every leaf/text string it carries
 avoids raw `<`/`>`. Attributes need no condition here, since an `Attrs`
@@ -271,6 +315,8 @@ private inductive WellFormedRepr : Repr → Prop where
   | elem {tag : String} {attrs : Attrs} {children : List Repr} {block : Bool}
       (hchildren : ∀ c ∈ children, WellFormedRepr c) :
       WellFormedRepr (.elem tag attrs children block)
+  | run {children : List Repr} (hchildren : ∀ c ∈ children, WellFormedRepr c) :
+      WellFormedRepr (.run children)
 
 /-- A `Node` built without `unsafeRaw`; see `WellFormedRepr`. -/
 def WellFormed (n : Node cat) : Prop := WellFormedRepr n.repr
@@ -319,6 +365,10 @@ private theorem renderCompactInto_wellFormed (dialect : Dialect) (r : Repr)
       foldl_wellFormed dialect children ih "" (.text (by simp))
     simpa [String.append_assoc] using
       hacc.append (.elem (Attrs.render_wellFormed attrs dialect) hinner)
+  | run _ ih =>
+    intro acc hacc
+    simp only [renderCompactInto]
+    exact foldl_wellFormed dialect _ ih acc hacc
 
 /-- **The well-formedness theorem:** given no `unsafeRaw` use, `render`
 always produces well-formed markup (`WellFormedHtml`): balanced tags, no
@@ -344,6 +394,47 @@ theorem voidElement_wellFormed (cat : Category) (tag : String) (attrs : Attrs) :
     WellFormed (voidElement cat tag attrs) :=
   .void
 
+private theorem flushRun_wellFormed (rs : List Repr) (h : ∀ r ∈ rs, WellFormedRepr r) :
+    ∀ r ∈ flushRun rs, WellFormedRepr r := by
+  match rs, h with
+  | [], _ => simp [flushRun]
+  | [r], h => simpa [flushRun] using h
+  | r₁ :: r₂ :: rs, h =>
+    intro r hr
+    simp only [flushRun, List.mem_singleton] at hr
+    subst hr
+    exact .run fun c hc => h c (List.mem_reverse.mp hc)
+
+private theorem gatherRuns_wellFormed (pending : List Repr) (children : List (Node cat))
+    (hp : ∀ r ∈ pending, WellFormedRepr r) (hc : ∀ c ∈ children, WellFormed c) :
+    ∀ r ∈ gatherRuns pending children, WellFormedRepr r := by
+  induction children generalizing pending with
+  | nil => exact flushRun_wellFormed pending hp
+  | cons c cs ih =>
+    have hcs : ∀ c ∈ cs, WellFormed c := fun c' h => hc c' (List.mem_cons_of_mem _ h)
+    simp only [gatherRuns]
+    split
+    · refine ih (c.repr :: pending) ?_ hcs
+      intro r hr
+      cases List.mem_cons.mp hr with
+      | inl h => exact h ▸ hc c (List.mem_cons_self ..)
+      | inr h => exact hp r h
+    · intro r hr
+      simp only [List.mem_append, List.mem_cons] at hr
+      rcases hr with h | h | h
+      · exact flushRun_wellFormed pending hp r h
+      · exact h ▸ hc c (List.mem_cons_self ..)
+      · exact ih [] (by simp) hcs r h
+
+private theorem layout_wellFormed (tag : String) (attrs : Attrs) (children : List (Node cat))
+    (h : ∀ c ∈ children, WellFormed c) : WellFormedRepr (layout tag attrs children) := by
+  unfold layout
+  split
+  · exact .elem fun r hr => by
+      obtain ⟨c, hc, hceq⟩ := List.mem_map.mp hr
+      exact hceq ▸ h c hc
+  · exact .elem (gatherRuns_wellFormed [] children (by simp) h)
+
 /-- **The compositional heart of the well-formedness theorem:** an element
 built from already-`WellFormed` children, via the typed constructors (never
 `unsafeRaw`), is itself `WellFormed`. Chaining this (and `element_wellFormed`,
@@ -354,13 +445,16 @@ rendering. -/
 theorem elementOf_wellFormed (cat contentCat : Category) (tag : String)
     (children : List (Node contentCat)) (attrs : Attrs) (h : ∀ c ∈ children, WellFormed c) :
     WellFormed (elementOf cat contentCat tag children attrs) :=
-  .elem fun r hr => by
-    obtain ⟨c, hc, hceq⟩ := List.mem_map.mp hr
-    exact hceq ▸ h c hc
+  layout_wellFormed tag attrs children h
 
 theorem element_wellFormed (cat : Category) (tag : String) (children : List (Node cat))
     (attrs : Attrs) (h : ∀ c ∈ children, WellFormed c) : WellFormed (element cat tag children attrs) :=
   elementOf_wellFormed cat cat tag children attrs h
+
+theorem transparentElement_wellFormed (cat : Category) [Transparent cat] (tag : String)
+    (children : List (Node cat)) (attrs : Attrs) (h : ∀ c ∈ children, WellFormed c) :
+    WellFormed (transparentElement cat tag children attrs) :=
+  layout_wellFormed tag attrs children h
 
 /-- The category coercions carry `WellFormed` across, so a phrasing child
 placed among flow content (and likewise for `<option>`/`<tr>`) needs no
