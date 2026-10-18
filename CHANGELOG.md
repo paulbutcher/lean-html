@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.10.1] - 2026-10-18
+
+* Chore: Lean version bump
+
 ## [0.10.0] - 2026-10-06
 
 * `a`, `canvas`, `video`, `audio`, `object`, `map`, `noscript`, and `slot` take the category of their context, as `ins` and `del` do, so one used standalone needs `(cat := ...)`
