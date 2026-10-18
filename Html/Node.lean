@@ -239,8 +239,10 @@ exhausted, by a literal `</tag>`, or else opens a void tag: unclosed under
 `.html5`, self-closing under `.xhtml`. Every attribute run is a
 `WellFormedAttrs` for the same dialect, and nowhere else does a `<` or `>`
 appear at all. This is a spec of the *output string*, stated independently of
-`Node`/`Repr`; at `.xhtml` it's the XML claim, every tag closed and every
-attribute given a value. -/
+`Node`/`Repr`. At `.xhtml`, this establishes XML-style tag closure and
+attribute-value syntax. It does not enforce all XML well-formedness conditions,
+including legal XML characters, tag-name validity, attribute uniqueness, or
+namespace bindings. -/
 inductive WellFormedHtml : Dialect → String → Prop where
   | text {d : Dialect} {s : String} (h : ∀ c ∈ s.toList, c ≠ '<' ∧ c ≠ '>') : WellFormedHtml d s
   | void {tag attrsStr : String} (hattrs : WellFormedAttrs .html5 attrsStr) :
@@ -373,7 +375,8 @@ private theorem renderCompactInto_wellFormed (dialect : Dialect) (r : Repr)
 /-- **The well-formedness theorem:** given no `unsafeRaw` use, `render`
 always produces well-formed markup (`WellFormedHtml`): balanced tags, no
 unescaped `<`/`>` anywhere outside of tag delimiters, and every attribute
-run of the shape its dialect admits. At `.xhtml` that output is XML. -/
+run of the shape its dialect admits. At `.xhtml` it follows XML-style tag
+and attribute syntax, without establishing full XML well-formedness. -/
 theorem render_wellFormed (n : Node cat) (h : WellFormed n) (dialect : Dialect := .html5) :
     WellFormedHtml dialect (n.render dialect) :=
   renderCompactInto_wellFormed dialect n.repr h "" (.text (by simp))
