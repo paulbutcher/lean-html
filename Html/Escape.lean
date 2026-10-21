@@ -79,10 +79,26 @@ def AttrFragment.render (dialect : Dialect) : AttrFragment → String
     | .html5 => s!" {sanitizeAttrName name}"
     | .xhtml => renderAttr (sanitizeAttrName name) (sanitizeAttrName name)
 
+def AttrFragment.name : AttrFragment → String
+  | .value name _ | .flag name => name
+
+/-- What makes two rendered attribute names duplicates. HTML parsers fold
+ASCII case; XML doesn't, but folding in both dialects keeps one `Attrs`
+value's attributes the same in either, and XHTML is often parsed as HTML. -/
+def attrNameKey (name : String) : String := name.map Char.toLower
+
 /-- Render an attribute list to a string. This is the single choke point
-that makes any `Attrs` value safe to splice directly after a tag name. -/
+that makes any `Attrs` value safe to splice directly after a tag name.
+Of fragments whose sanitized names collide, the first is kept, as an HTML
+parser would, so typed attributes take precedence over `rawAttrs`. -/
 def Attrs.render (attrs : Attrs) (dialect : Dialect := .html5) : String :=
-  String.join (attrs.map (AttrFragment.render dialect))
+  go [] attrs
+where
+  go (seen : List String) : Attrs → String
+    | [] => ""
+    | f :: rest =>
+      let key := attrNameKey (sanitizeAttrName f.name)
+      if key ∈ seen then go seen rest else f.render dialect ++ go (key :: seen) rest
 
 /-- A single required `name="value"` attribute. -/
 def reqAttr (name value : String) : Attrs := [.value name value]
@@ -188,21 +204,26 @@ structure IsAttrName (s : String) : Prop where
 theorem sanitizeAttrName_isAttrName (s : String) : IsAttrName (sanitizeAttrName s) :=
   ⟨sanitizeAttrName_start s, sanitizeAttrName_safe s⟩
 
+/-- A run of attributes whose names have exactly the `attrNameKey`s `keys`,
+each fresh where it's added; see `WellFormedAttrs`. -/
+inductive AttrRun : Dialect → List String → String → Prop where
+  | nil {d : Dialect} : AttrRun d [] ""
+  | value {d : Dialect} {name value rest : String} {keys : List String}
+      (hname : IsAttrName name) (hvalue : ∀ c ∈ value.toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"')
+      (hfresh : attrNameKey name ∉ keys) (hrest : AttrRun d keys rest) :
+      AttrRun d (attrNameKey name :: keys) (" " ++ name ++ "=\"" ++ value ++ "\"" ++ rest)
+  | flag {name rest : String} {keys : List String} (hname : IsAttrName name)
+      (hfresh : attrNameKey name ∉ keys) (hrest : AttrRun .html5 keys rest) :
+      AttrRun .html5 (attrNameKey name :: keys) (" " ++ name ++ rest)
+
 /-- The shape of a rendered attribute string, stated independently of
 `Attrs`: a concatenation of ` name="value"` pairs, each name an
-`IsAttrName` and no value carrying a raw `<`, `>`, or `"`. Bare flags
-(` name`, no value) are admitted under `.html5` only; there's deliberately
-no `.xhtml` case for them, so this predicate holding at `.xhtml` *is* the
-statement that XML output gives every attribute a value. -/
-inductive WellFormedAttrs : Dialect → String → Prop where
-  | nil {d : Dialect} : WellFormedAttrs d ""
-  | value {d : Dialect} {name value rest : String} (hname : IsAttrName name)
-      (hvalue : ∀ c ∈ value.toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"')
-      (hrest : WellFormedAttrs d rest) :
-      WellFormedAttrs d (" " ++ name ++ "=\"" ++ value ++ "\"" ++ rest)
-  | flag {name rest : String} (hname : IsAttrName name)
-      (hrest : WellFormedAttrs .html5 rest) :
-      WellFormedAttrs .html5 (" " ++ name ++ rest)
+`IsAttrName`, no two names duplicates, and no value carrying a raw `<`,
+`>`, or `"`. Bare flags (` name`, no value) are admitted under `.html5`
+only; there's deliberately no `.xhtml` case for them, so this predicate
+holding at `.xhtml` *is* the statement that XML output gives every
+attribute a value. -/
+def WellFormedAttrs (d : Dialect) (s : String) : Prop := ∃ keys, AttrRun d keys s
 
 private theorem isAttrNameChar_safe (c : Char) (h : isAttrNameChar c = true) :
     c ≠ '<' ∧ c ≠ '>' := by
@@ -232,42 +253,69 @@ private theorem AttrFragment.render_safe (dialect : Dialect) (f : AttrFragment) 
         (fun c hc => isAttrNameChar_safe c (sanitizeAttrName_safe name c hc))
     | xhtml => exact renderAttr_sanitized_safe name (sanitizeAttrName name)
 
+private theorem Attrs.render_go_safe (dialect : Dialect) (seen : List String) (attrs : Attrs) :
+    ∀ c ∈ (Attrs.render.go dialect seen attrs).toList, c ≠ '<' ∧ c ≠ '>' := by
+  induction attrs generalizing seen with
+  | nil => simp [Attrs.render.go]
+  | cons f rest ih =>
+    simp only [Attrs.render.go]
+    split
+    · exact ih seen
+    · exact append_safe (AttrFragment.render_safe dialect f) (ih _)
+
 /-- **The well-formedness-relevant safety property:** no matter what
 fragments an `Attrs` value contains, `Attrs.render`'s output never contains
 a raw `<` or `>`; every name goes through `sanitizeAttrName_safe`, every
 value through `escape_safe`. -/
 theorem Attrs.render_safe (attrs : Attrs) (dialect : Dialect := .html5) :
     ∀ c ∈ (Attrs.render attrs dialect).toList, c ≠ '<' ∧ c ≠ '>' :=
-  join_map_safe _ attrs fun f _ => AttrFragment.render_safe dialect f
+  Attrs.render_go_safe dialect [] attrs
+
+/-- The keys `go` emits are all outside `seen`, which is what lets each
+one be fresh where `AttrRun` adds it. -/
+private theorem Attrs.render_go_run (dialect : Dialect) (seen : List String) (attrs : Attrs) :
+    ∃ keys, AttrRun dialect keys (Attrs.render.go dialect seen attrs) ∧ ∀ k ∈ keys, k ∉ seen := by
+  induction attrs generalizing seen with
+  | nil => exact ⟨[], by simpa [Attrs.render.go] using AttrRun.nil, by simp⟩
+  | cons f rest ih =>
+    simp only [Attrs.render.go]
+    split
+    · exact ih seen
+    · rename_i hseen
+      obtain ⟨keys, hrun, hout⟩ := ih (attrNameKey (sanitizeAttrName f.name) :: seen)
+      have hfresh : attrNameKey (sanitizeAttrName f.name) ∉ keys :=
+        fun h => hout _ h List.mem_cons_self
+      refine ⟨attrNameKey (sanitizeAttrName f.name) :: keys, ?_, ?_⟩
+      · cases f with
+        | value name val =>
+          have heq : (AttrFragment.value name val).render dialect
+              = " " ++ sanitizeAttrName name ++ "=\"" ++ escape val ++ "\"" := rfl
+          rw [heq]
+          exact .value (sanitizeAttrName_isAttrName name) (escape_safe val) hfresh hrun
+        | flag name =>
+          cases dialect with
+          | html5 =>
+            have heq : (AttrFragment.flag name).render .html5 = " " ++ sanitizeAttrName name := rfl
+            rw [heq]
+            exact .flag (sanitizeAttrName_isAttrName name) hfresh hrun
+          | xhtml =>
+            have heq : (AttrFragment.flag name).render .xhtml
+                = " " ++ sanitizeAttrName name ++ "=\"" ++ escape (sanitizeAttrName name) ++ "\"" :=
+              rfl
+            rw [heq]
+            exact .value (sanitizeAttrName_isAttrName name) (escape_safe (sanitizeAttrName name))
+              hfresh hrun
+      · intro k hk
+        rcases List.mem_cons.mp hk with rfl | hk
+        · exact hseen
+        · exact fun h => hout k hk (List.mem_cons_of_mem _ h)
 
 /-- **The attribute-shape theorem:** every string `Attrs.render` produces is a
 well-formed run of attributes for the dialect it was asked for. At `.xhtml`
 this is the stronger claim, `WellFormedAttrs` having no bare flag there. -/
 theorem Attrs.render_wellFormed (attrs : Attrs) (dialect : Dialect := .html5) :
-    WellFormedAttrs dialect (Attrs.render attrs dialect) := by
-  induction attrs with
-  | nil => simpa [Attrs.render] using WellFormedAttrs.nil (d := dialect)
-  | cons f rest ih =>
-    have hcons : Attrs.render (f :: rest) dialect
-        = f.render dialect ++ Attrs.render rest dialect := by
-      simp [Attrs.render]
-    rw [hcons]
-    cases f with
-    | value name val =>
-      have heq : (AttrFragment.value name val).render dialect
-          = " " ++ sanitizeAttrName name ++ "=\"" ++ escape val ++ "\"" := rfl
-      rw [heq]
-      exact .value (sanitizeAttrName_isAttrName name) (escape_safe val) ih
-    | flag name =>
-      cases dialect with
-      | html5 =>
-        have heq : (AttrFragment.flag name).render .html5 = " " ++ sanitizeAttrName name := rfl
-        rw [heq]
-        exact .flag (sanitizeAttrName_isAttrName name) ih
-      | xhtml =>
-        have heq : (AttrFragment.flag name).render .xhtml
-            = " " ++ sanitizeAttrName name ++ "=\"" ++ escape (sanitizeAttrName name) ++ "\"" := rfl
-        rw [heq]
-        exact .value (sanitizeAttrName_isAttrName name) (escape_safe (sanitizeAttrName name)) ih
+    WellFormedAttrs dialect (Attrs.render attrs dialect) :=
+  let ⟨keys, hrun, _⟩ := Attrs.render_go_run dialect [] attrs
+  ⟨keys, hrun⟩
 
 end Html

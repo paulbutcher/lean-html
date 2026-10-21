@@ -171,6 +171,7 @@ open Html
 #guard Node.render (div [] { id := "x", class_ := "y" })
   = "<div id=\"x\" class=\"y\"></div>"
 #guard Node.render (div [] {} [("data-x", "1")]) = "<div data-x=\"1\"></div>"
+#guard Node.render (div [] { id := "x" } [("ID", "y")]) .xhtml = "<div id=\"x\"></div>"
 #guard Node.render (div [(Node.unsafeRaw "<b>raw</b>" : Node .flow)])
   = "<div><b>raw</b></div>"
 #guard Node.render (ul [li [Node.text "one"], li [Node.text "two"]])

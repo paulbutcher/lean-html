@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.11.0] - 2026-10-21
+
+* A repeated attribute name, compared after sanitizing and ignoring ASCII case, now renders once, the first occurrence winning
+
 ## [0.10.1] - 2026-10-18
 
 * Chore: Lean version bump

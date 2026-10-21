@@ -40,9 +40,10 @@ every boolean attribute carries a value (`disabled="disabled"`), and
 `Node.render_wellFormed` shows that, given no `unsafeRaw` use,
 `Node.render` always produces well-formed markup: balanced tags, no
 unescaped `<`/`>` outside tag delimiters, and every attribute run of the
-shape its dialect admits (`Attrs.render_wellFormed`). `WellFormedHtml` is
-indexed by the dialect, and at `.xhtml` has neither an unclosed void tag nor
-a bare attribute, so the theorem there says the output is well-formed XML.
+shape its dialect admits, with no name repeated (`Attrs.render_wellFormed`).
+`WellFormedHtml` is indexed by the dialect, and at `.xhtml` has neither an
+unclosed void tag nor a bare attribute, so the theorem there says the output
+is well-formed XML.
 It's established compositionally, so `Node.WellFormed` for a concrete tree
 follows from chaining the per-constructor lemmas (`element_wellFormed`,
 `text_wellFormed`, ...) over however that tree was built, tag functions
