@@ -112,14 +112,14 @@ open Html
   = " data=\"a.pdf\" type=\"application/pdf\" width=\"300\" height=\"150\" id=\"i\""
 
 #guard (VideoAttrs.render
-    { src := "a.mp4", poster := "p.png", controls := true, autoplay := true, loop := true,
+    { poster := "p.png", controls := true, autoplay := true, loop := true,
       muted := true, width := "300", height := "150", id := "i" }).render
-  = " src=\"a.mp4\" poster=\"p.png\" controls autoplay loop muted width=\"300\" height=\"150\" id=\"i\""
+  = " poster=\"p.png\" controls autoplay loop muted width=\"300\" height=\"150\" id=\"i\""
 
 #guard (AudioAttrs.render
-    { src := "a.mp3", controls := true, autoplay := true, loop := true, muted := true,
+    { controls := true, autoplay := true, loop := true, muted := true,
       id := "i" }).render
-  = " src=\"a.mp3\" controls autoplay loop muted id=\"i\""
+  = " controls autoplay loop muted id=\"i\""
 
 #guard (MapAttrs.render { name := "sitemap", id := "i" }).render = " name=\"sitemap\" id=\"i\""
 

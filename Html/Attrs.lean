@@ -259,9 +259,9 @@ def ObjectAttrs.render (a : ObjectAttrs) : Attrs :=
   optAttr "data" a.data ++ optAttr "type" a.type ++ optAttr "width" a.width ++
     optAttr "height" a.height ++ HtmlAttrs.render a.toHtmlAttrs
 
-/-- `<video>` -/
+/-- `<video>`. `src` is `video`'s `MediaSource` argument instead, since it excludes `<source>`
+children. -/
 structure VideoAttrs extends HtmlAttrs where
-  src : Option String := none
   poster : Option String := none
   controls : Bool := false
   autoplay : Bool := false
@@ -271,21 +271,20 @@ structure VideoAttrs extends HtmlAttrs where
   height : Option String := none
 
 def VideoAttrs.render (a : VideoAttrs) : Attrs :=
-  optAttr "src" a.src ++ optAttr "poster" a.poster ++ flagAttr "controls" a.controls ++
+  optAttr "poster" a.poster ++ flagAttr "controls" a.controls ++
     flagAttr "autoplay" a.autoplay ++ flagAttr "loop" a.loop ++
     flagAttr "muted" a.muted ++ optAttr "width" a.width ++ optAttr "height" a.height ++
     HtmlAttrs.render a.toHtmlAttrs
 
-/-- `<audio>` -/
+/-- `<audio>`. `src` is `audio`'s `MediaSource` argument, as for `<video>`. -/
 structure AudioAttrs extends HtmlAttrs where
-  src : Option String := none
   controls : Bool := false
   autoplay : Bool := false
   loop : Bool := false
   muted : Bool := false
 
 def AudioAttrs.render (a : AudioAttrs) : Attrs :=
-  optAttr "src" a.src ++ flagAttr "controls" a.controls ++
+  flagAttr "controls" a.controls ++
     flagAttr "autoplay" a.autoplay ++ flagAttr "loop" a.loop ++
     flagAttr "muted" a.muted ++ HtmlAttrs.render a.toHtmlAttrs
 

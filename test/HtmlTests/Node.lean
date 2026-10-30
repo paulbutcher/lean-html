@@ -23,7 +23,7 @@ example : Node.WellFormed
   intro c hc
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hc
   rcases hc with hc | hc <;> subst hc
-  · exact Node.text_wellFormed "hi"
+  · exact Node.widen_wellFormed (Node.text_wellFormed "hi")
   · exact Node.element_wellFormed .flow "p" [] [] (by simp)
 
 example : WellFormedHtml .html5 (Node.render
@@ -33,7 +33,7 @@ example : WellFormedHtml .html5 (Node.render
     intro c hc
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hc
     rcases hc with hc | hc <;> subst hc
-    · exact Node.text_wellFormed "hi"
+    · exact Node.widen_wellFormed (Node.text_wellFormed "hi")
     · exact Node.element_wellFormed .flow "p" [] [] (by simp))
 
 /-- The same theorem at `.xhtml`, where `WellFormedHtml` additionally rules out
@@ -48,14 +48,14 @@ example : WellFormedHtml .xhtml (Node.render
     intro c hc
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hc
     rcases hc with hc | hc <;> subst hc
-    · exact Node.text_wellFormed "hi"
+    · exact Node.widen_wellFormed (Node.text_wellFormed "hi")
     · exact Node.voidElement_wellFormed .flow "br" _) .xhtml
 
 /-- **Paired renderer-side invariant for `text`:** a `text` leaf renders to exactly
 its escaped content, with nothing else spliced in. Combined with `escape_safe`,
 a `text` leaf can never inject a raw `<`/`>` into its surrounding markup. -/
-theorem render_text_safe (cat : Category) (s : String) (dialect : Dialect) :
-    Node.render (Node.text (cat := cat) s) dialect = escape s ∧
+theorem render_text_safe (s : String) (dialect : Dialect) :
+    Node.render (Node.text s) dialect = escape s ∧
       ∀ c ∈ (escape s).toList, c ≠ '<' ∧ c ≠ '>' ∧ c ≠ '"' :=
   ⟨Node.render_text s dialect, escape_safe s⟩
 

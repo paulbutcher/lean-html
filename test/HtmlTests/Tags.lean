@@ -21,7 +21,7 @@ open Html
 #guard Node.render (footer []) = "<footer></footer>"
 #guard Node.render (nav []) = "<nav></nav>"
 #guard Node.render (aside []) = "<aside></aside>"
-#guard Node.render (hgroup []) = "<hgroup></hgroup>"
+#guard Node.render (hgroup [] (h1 [])) = "<hgroup><h1></h1></hgroup>"
 #guard Node.render (address []) = "<address></address>"
 #guard Node.render (main []) = "<main></main>"
 #guard Node.render (search []) = "<search></search>"
@@ -38,7 +38,7 @@ open Html
 #guard Node.render (li []) = "<li></li>"
 #guard Node.render (li [] { value := "3" }) = "<li value=\"3\"></li>"
 #guard Node.render (menu []) = "<menu></menu>"
-#guard Node.render (dl []) = "<dl></dl>"
+#guard Node.render dl = "<dl></dl>"
 #guard Node.render (dt []) = "<dt></dt>"
 #guard Node.render (dd []) = "<dd></dd>"
 #guard Node.render (blockquote []) = "<blockquote></blockquote>"
@@ -51,7 +51,7 @@ open Html
 #guard Node.render (base) = "<base>"
 #guard Node.render (base { href := "/", target := "_blank" }) = "<base href=\"/\" target=\"_blank\">"
 #guard Node.render (noscript (cat := .flow) []) = "<noscript></noscript>"
-#guard Node.render (template []) = "<template></template>"
+#guard Node.render (template (cat := .flow) []) = "<template></template>"
 #guard Node.render (canvas (cat := .flow) []) = "<canvas></canvas>"
 #guard Node.render (canvas (cat := .flow) [] { width := "300", height := "150" })
   = "<canvas width=\"300\" height=\"150\"></canvas>"
@@ -77,7 +77,7 @@ open Html
 #guard Node.render (sup []) = "<sup></sup>"
 #guard Node.render (bdi []) = "<bdi></bdi>"
 #guard Node.render (bdo []) = "<bdo></bdo>"
-#guard Node.render (ruby []) = "<ruby></ruby>"
+#guard Node.render (ruby ⟨[], rt []⟩) = "<ruby><rt></rt></ruby>"
 #guard Node.render (rt []) = "<rt></rt>"
 #guard Node.render (rp []) = "<rp></rp>"
 #guard Node.render (wbr) = "<wbr>"
@@ -123,14 +123,16 @@ open Html
 #guard Node.render (meter []) = "<meter></meter>"
 #guard Node.render (meter [] { value := "6", min := "0", max := "10" })
   = "<meter value=\"6\" min=\"0\" max=\"10\"></meter>"
-#guard Node.render (details []) = "<details></details>"
-#guard Node.render (details [] { open_ := true }) = "<details open></details>"
+#guard Node.render (details (summary [])) = "<details><summary></summary></details>"
+#guard Node.render (details (summary []) [] { open_ := true })
+  = "<details open><summary></summary></details>"
 #guard Node.render (summary []) = "<summary></summary>"
 #guard Node.render (dialog []) = "<dialog></dialog>"
 #guard Node.render (dialog [] { open_ := true }) = "<dialog open></dialog>"
 #guard Node.render (img { src := "a.png", alt := "d" }) = "<img src=\"a.png\" alt=\"d\">"
 #guard Node.render (hr) = "<hr>"
-#guard Node.render (picture []) = "<picture></picture>"
+#guard Node.render (picture [] (img { src := "a.png", alt := "d" }))
+  = "<picture><img src=\"a.png\" alt=\"d\"></picture>"
 #guard Node.render (source) = "<source>"
 #guard Node.render (source { src := "a.mp4", type := "video/mp4" })
   = "<source src=\"a.mp4\" type=\"video/mp4\">"
@@ -141,15 +143,15 @@ open Html
 #guard Node.render (object (cat := .flow)) = "<object></object>"
 #guard Node.render (object (cat := .flow) { data := "a.pdf" }) = "<object data=\"a.pdf\"></object>"
 #guard Node.render (video (cat := .flow)) = "<video></video>"
-#guard Node.render (video (cat := .flow) (attrs := { src := "a.mp4", controls := true }))
+#guard Node.render (video (cat := .flow) (.src "a.mp4") (attrs := { controls := true }))
   = "<video src=\"a.mp4\" controls></video>"
 #guard Node.render (audio (cat := .flow)) = "<audio></audio>"
-#guard Node.render (audio (cat := .flow) (attrs := { src := "a.mp3", controls := true }))
+#guard Node.render (audio (cat := .flow) (.src "a.mp3") (attrs := { controls := true }))
   = "<audio src=\"a.mp3\" controls></audio>"
 #guard Node.render (map (cat := .flow) { name := "sitemap" }) = "<map name=\"sitemap\"></map>"
 #guard Node.render (area) = "<area>"
 #guard Node.render (area { href := "#a", alt := "Area A" }) = "<area href=\"#a\" alt=\"Area A\">"
-#guard Node.render (table []) = "<table></table>"
+#guard Node.render table = "<table></table>"
 #guard Node.render (caption []) = "<caption></caption>"
 #guard Node.render (colgroup []) = "<colgroup></colgroup>"
 #guard Node.render (col) = "<col>"
@@ -177,15 +179,14 @@ open Html
 #guard Node.render (ul [li [Node.text "one"], li [Node.text "two"]])
   = "<ul><li>one</li><li>two</li></ul>"
 
--- Content-model composition: table sections/rows/cells, and a bare
--- `<tr>` coercing directly into `table`'s children (no `<tbody>` needed).
-#guard Node.render (table [
-    caption [Node.text "Cap"],
-    colgroup [col],
-    thead [tr [th [Node.text "H"]]],
-    tbody [tr [td [Node.text "1"], td [Node.text "2"]]],
-    tfoot [tr [td [Node.text "F"]]]
-  ]) = "<table><caption>Cap</caption><colgroup><col></colgroup>" ++
+-- `table` fixes the order of its parts, whatever order its arguments come in, and takes either
+-- `<tbody>` sections or bare rows.
+#guard Node.render (table [tbody [tr [td [Node.text "1"], td [Node.text "2"]]]]
+    (tfoot := tfoot [tr [td [Node.text "F"]]])
+    (thead := thead [tr [th [Node.text "H"]]])
+    (colgroups := [colgroup [col]])
+    (caption := caption [Node.text "Cap"])
+  ) = "<table><caption>Cap</caption><colgroup><col></colgroup>" ++
     "<thead><tr><th>H</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody>" ++
     "<tfoot><tr><td>F</td></tr></tfoot></table>"
 #guard Node.render (table [tr [td []]]) = "<table><tr><td></td></tr></table>"
@@ -265,10 +266,8 @@ example : Node .tableRow := tr [div []]
 -- Structure-only categories (table rows/cells, select options) get block
 -- layout when pretty-printed, same as flow content; only genuine
 -- phrasing content stays inline.
-#guard Node.renderPretty (table [
-    thead [tr [th [Node.text "H"]]],
-    tbody [tr [td [Node.text "1"], td [Node.text "2"]]]
-  ]) = "<table>\n  <thead>\n    <tr>\n      <th>H</th>\n    </tr>\n  </thead>\n" ++
+#guard Node.renderPretty (table [tbody [tr [td [Node.text "1"], td [Node.text "2"]]]]
+    (thead := thead [tr [th [Node.text "H"]]])) ="<table>\n  <thead>\n    <tr>\n      <th>H</th>\n    </tr>\n  </thead>\n" ++
     "  <tbody>\n    <tr>\n      <td>1</td>\n      <td>2</td>\n    </tr>\n  </tbody>\n</table>"
 #guard Node.renderPretty (select [option "a", option "b"])
   = "<select>\n  <option>a</option>\n  <option>b</option>\n</select>"
@@ -313,7 +312,7 @@ example : Node .flow := ul [ins [li ["x"]]]
 example : Node .flow := div [a { href := "/post" } [h1 ["Title"], p ["Summary"]]]
 example : Node .flow := div [slot [p ["Fallback"]]]
 example : Node .flow :=
-  p [canvas [], video [], audio [], object, map { name := "m" } [img { src := "m.png", alt := "Map" }],
+  p [canvas [], video, audio, object, map { name := "m" } [img { src := "m.png", alt := "Map" }],
     noscript ["Enable scripts"]]
 
 -- Whitespace between phrasing siblings renders, so pretty-printing puts none

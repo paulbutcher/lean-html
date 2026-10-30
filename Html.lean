@@ -15,16 +15,18 @@ public import Html.Document
 # `Html`: a typed HTML5 library
 
 Renders well-formed, escaped HTML from Lean values, using Lean's type
-system to make illegal nesting unrepresentable.
+system to make illegal nesting and illegal child order unrepresentable.
 
 `Node cat` (`Html/Node.lean`) is a tree indexed by the content-model
 category it's valid in, with a private constructor: the only way to build
 one is through the primitives there, or the tag functions (`Html/Tags.lean`)
 built on them, so a well-typed program already has correct nesting and
-balanced tags. Attributes reach and are stored by those primitives as an
-`Attrs` value (`Html/Escape.lean`) rather than a pre-rendered string, which
-leaves `Attrs.render` as the single place names are sanitized and values
-escaped, and defers to render time how they are spelled.
+balanced tags. Where the content model fixes the order or count of children,
+the tag function takes them as separate arguments, so that is typed too.
+Attributes reach and are stored by those primitives as an `Attrs` value
+(`Html/Escape.lean`) rather than a pre-rendered string, which leaves
+`Attrs.render` as the single place names are sanitized and values escaped,
+and defers to render time how they are spelled.
 
 ## Dialects
 
@@ -38,16 +40,18 @@ every boolean attribute carries a value (`disabled="disabled"`), and
 ## Well-formedness
 
 `Node.render_wellFormed` shows that, given no `unsafeRaw` use,
-`Node.render` always produces well-formed markup: balanced tags, no
-unescaped `<`/`>` outside tag delimiters, and every attribute run of the
-shape its dialect admits, with no name repeated (`Attrs.render_wellFormed`).
+`Node.render` always produces, with or without `lineBreaks`, well-formed
+markup: balanced tags, no unescaped `<`/`>` outside tag delimiters, and
+every attribute run of the shape its dialect admits, with no name repeated
+(`Attrs.render_wellFormed`).
 `WellFormedHtml` is indexed by the dialect, and at `.xhtml` has neither an
 unclosed void tag nor a bare attribute, so the theorem there says the output
 is well-formed XML.
 It's established compositionally, so `Node.WellFormed` for a concrete tree
 follows from chaining the per-constructor lemmas (`element_wellFormed`,
-`text_wellFormed`, ...) over however that tree was built, tag functions
-included; `test/HtmlTests/Node.lean` works an example. `escape_safe`,
+`text_wellFormed`, ...) over however that tree was built, with a lemma of its
+own for each tag function built on `Node.elementSeq` (`table_wellFormed`,
+...); `test/HtmlTests/Node.lean` works an example. `escape_safe`,
 `sanitizeAttrName_safe`, and `Attrs.render_safe` (`Html/Escape.lean`), the
 escaping-safety facts that proof rests on, are public too.
 
