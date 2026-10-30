@@ -29,9 +29,9 @@ Scope notes:
   single node for exactly one, and a sum type (`TableBody`, `DlContent`, `FigureCaption`,
   `MediaSource`, `RubyText`) for alternatives. An optional element always follows `attrs` and
   `rawAttrs`, and is passed by name.
-- Script-supporting elements (`script`, `template`) may intermix with the children of a table,
-  list, `dl`, `select`, `picture`, `hgroup`, or `ruby`; that isn't modelled, so there they are
-  rejected.
+- Script-supporting elements (`script`, `template`) intermix with an element's children through
+  its `List` arguments. Between a table's optional parts, and within a group of `<dt>` and `<dd>`,
+  the spec admits them too but there is no list to hold them, so they are rejected.
 -/
 
 @[expose] public section
@@ -73,8 +73,9 @@ def aside (children : List (Node .flow)) (attrs : HtmlAttrs := {})
 /-- Any number of `<p>`, then one heading, then any number of `<p>`. -/
 def hgroup (before : List (Node .paragraph)) (heading : Node .heading)
     (after : List (Node .paragraph) := []) (attrs : HtmlAttrs := {})
-    (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.elementSeq .flow "hgroup" (before.map Node.child ++ heading.child :: after.map Node.child)
+    (rawAttrs : List (String × String) := []) : Node .headingGroup :=
+  Node.elementSeq .headingGroup "hgroup"
+    (before.map Node.child ++ heading.child :: after.map Node.child)
     (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def address (children : List (Node .flow)) (attrs : HtmlAttrs := {})
@@ -121,15 +122,30 @@ def link {cat : Category} [Metadata cat] (attrs : LinkAttrs)
 def base (attrs : BaseAttrs := {}) (rawAttrs : List (String × String) := []) : Node .base :=
   Node.voidElement .base "base" (combineAttrs (BaseAttrs.render attrs) rawAttrs)
 
-def script {cat : Category} [Metadata cat] (attrs : ScriptAttrs)
+def script {cat : Category} [ScriptContext cat] (attrs : ScriptAttrs)
     (rawAttrs : List (String × String) := []) : Node cat :=
   Node.element cat "script" [] (combineAttrs (ScriptAttrs.render attrs) rawAttrs)
 
-def noscript {cat : Category} [Transparent cat] (children : List (Node cat))
-    (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node cat :=
-  Node.transparentElement cat "noscript" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+/-- What a `<noscript>` in context `cat` holds: transparent content in the body, but only `link`
+and `meta` in `<head>`. -/
+class NoscriptContext (cat : Category) (content : outParam Category) where
+  build : List (Node content) → Attrs → Node cat
+  build_wellFormed :
+    ∀ children attrs, (∀ c ∈ children, Node.WellFormed c) → Node.WellFormed (build children attrs)
 
-def template {cat : Category} [Metadata cat] (children : List (Node .flow))
+instance [Transparent cat] : NoscriptContext cat cat where
+  build children attrs := Node.transparentElement cat "noscript" children attrs
+  build_wellFormed _ _ h := Node.transparentElement_wellFormed _ _ _ _ _ .nil h
+
+instance : NoscriptContext .metadata .noscriptMetadata where
+  build children attrs := Node.elementOf .metadata .noscriptMetadata "noscript" children attrs
+  build_wellFormed _ _ h := Node.elementOf_wellFormed _ _ _ _ _ h
+
+def noscript {cat content : Category} [NoscriptContext cat content] (children : List (Node content))
+    (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node cat :=
+  NoscriptContext.build children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+
+def template {cat : Category} [TemplateContext cat] (children : List (Node .flow))
     (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node cat :=
   Node.elementOf cat .flow "template" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
@@ -412,10 +428,10 @@ def fieldset (children : List (Node .flow)) (attrs : FieldsetAttrs := {})
   Node.elementSeq .flow "fieldset" (legend.toList.map Node.child ++ children.map Node.child)
     (combineAttrs (FieldsetAttrs.render attrs) rawAttrs)
 
-/-- Heading content, which the spec also admits here, is rejected. -/
-def legend (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
+def legend (children : List (Node .phrasingOrHeading)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .legend :=
-  Node.elementOf .legend .phrasing "legend" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  Node.elementOf .legend .phrasingOrHeading "legend" children
+    (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def input (attrs : InputAttrs := {}) (rawAttrs : List (String × String) := []) : Node .phrasing :=
   Node.voidElement .phrasing "input" (combineAttrs (InputAttrs.render attrs) rawAttrs)
@@ -467,10 +483,10 @@ def details (summary : Node .summary) (children : List (Node .flow) := []) (attr
   Node.elementSeq .flow "details" (summary.child :: children.map Node.child)
     (combineAttrs (OpenAttrs.render attrs) rawAttrs)
 
-/-- Heading content, which the spec also admits here, is rejected. -/
-def summary (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
+def summary (children : List (Node .phrasingOrHeading)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .summary :=
-  Node.elementOf .summary .phrasing "summary" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  Node.elementOf .summary .phrasingOrHeading "summary" children
+    (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def dialog (children : List (Node .flow)) (attrs : OpenAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
@@ -482,13 +498,23 @@ def img (attrs : ImgAttrs) (rawAttrs : List (String × String) := []) : Node .im
 def hr (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node .flow :=
   Node.voidElement .flow "hr" (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
-def picture (sources : List (Node .source)) (img : Node .image) (attrs : HtmlAttrs := {})
+def picture (sources : List (Node .pictureSource)) (img : Node .image) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
   Node.elementSeq .phrasing "picture" (sources.map Node.child ++ [img.child])
     (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
-def source (attrs : SourceAttrs := {}) (rawAttrs : List (String × String) := []) : Node .source :=
-  Node.voidElement .source "source" (combineAttrs (SourceAttrs.render attrs) rawAttrs)
+/-- The attributes a `<source>` in context `cat` takes: `srcset` in a `<picture>`, `src` in a
+media element. A media element's is the default, since a list coerced to a `MediaSource` gives
+its elements no expected type to choose by. -/
+class SourceContext (cat : Category) (attrs : outParam Type) where
+  render : attrs → Attrs
+
+@[default_instance] instance : SourceContext .source SourceAttrs := ⟨SourceAttrs.render⟩
+instance : SourceContext .pictureSource PictureSourceAttrs := ⟨PictureSourceAttrs.render⟩
+
+def source {cat : Category} {α : Type} [SourceContext cat α] (attrs : α)
+    (rawAttrs : List (String × String) := []) : Node cat :=
+  Node.voidElement cat "source" (combineAttrs (SourceContext.render (cat := cat) attrs) rawAttrs)
 
 def track (attrs : TrackAttrs) (rawAttrs : List (String × String) := []) : Node .track :=
   Node.voidElement .track "track" (combineAttrs (TrackAttrs.render attrs) rawAttrs)
@@ -569,10 +595,25 @@ def caption (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .tableCaption :=
   Node.elementOf .tableCaption .flow "caption" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
-def colgroup (children : List (Node .tableColumn)) (attrs : HtmlAttrs := {})
+/-- A `<colgroup>` holds either a `span` attribute or `<col>` children, never both. -/
+inductive ColgroupContent where
+  | span (span : String)
+  | cols (cols : List (Node .tableColumn))
+
+instance : Coe (List (Node .tableColumn)) ColgroupContent := ⟨.cols⟩
+
+def ColgroupContent.attrs : ColgroupContent → Attrs
+  | .span n => reqAttr "span" n
+  | .cols _ => []
+
+def ColgroupContent.children : ColgroupContent → List (Node .tableColumn)
+  | .span _ => []
+  | .cols cs => cs
+
+def colgroup (content : ColgroupContent := .cols []) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .tableColumnGroup :=
-  Node.elementOf .tableColumnGroup .tableColumn "colgroup" children
-    (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  Node.elementOf .tableColumnGroup .tableColumn "colgroup" content.children
+    (combineAttrs (content.attrs ++ HtmlAttrs.render attrs) rawAttrs)
 
 def col (attrs : ColAttrs := {}) (rawAttrs : List (String × String) := []) : Node .tableColumn :=
   Node.voidElement .tableColumn "col" (combineAttrs (ColAttrs.render attrs) rawAttrs)
@@ -601,8 +642,8 @@ def td (children : List (Node .flow)) (attrs : TdAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .tableCell :=
   Node.elementOf .tableCell .flow "td" children (combineAttrs (TdAttrs.render attrs) rawAttrs)
 
-/-! `WellFormed` for the tag functions built on `Node.elementSeq`, whose children aren't a
-single list. Each takes one hypothesis per argument; `Node.WellFormedChildren`'s lemmas discharge
+/-! `WellFormed` for the tag functions whose children aren't a single list, or whose shape
+depends on an argument or on their context. Each takes one hypothesis per argument; `Node.WellFormedChildren`'s lemmas discharge
 those for a `children` function. -/
 
 namespace Node
@@ -668,7 +709,7 @@ theorem details_wellFormed (summary : Node .summary) (children : List (Node .flo
     WellFormed (details summary children attrs rawAttrs) :=
   elementSeq_wellFormed _ _ _ _ (.cons hsummary (ofNodes hchildren))
 
-theorem picture_wellFormed (sources : List (Node .source)) (img : Node .image)
+theorem picture_wellFormed (sources : List (Node .pictureSource)) (img : Node .image)
     (attrs : HtmlAttrs) (rawAttrs : List (String × String))
     (hsources : ∀ n ∈ sources, WellFormed n) (himg : WellFormed img) :
     WellFormed (picture sources img attrs rawAttrs) :=
@@ -687,6 +728,17 @@ theorem audio_wellFormed {cat : Category} [Transparent cat] (source : MediaSourc
     (htracks : ∀ n ∈ tracks, WellFormed n) (hchildren : ∀ n ∈ children, WellFormed n) :
     WellFormed (audio source tracks children attrs rawAttrs) :=
   transparentElement_wellFormed _ _ _ _ _ (hsource.append (ofNodes htracks)) hchildren
+
+theorem noscript_wellFormed {cat content : Category} [NoscriptContext cat content]
+    (children : List (Node content)) (attrs : HtmlAttrs) (rawAttrs : List (String × String))
+    (hchildren : ∀ n ∈ children, WellFormed n) :
+    WellFormed (noscript (cat := cat) children attrs rawAttrs) :=
+  NoscriptContext.build_wellFormed _ _ hchildren
+
+theorem colgroup_wellFormed (content : ColgroupContent) (attrs : HtmlAttrs)
+    (rawAttrs : List (String × String)) (hcontent : ∀ n ∈ content.children, WellFormed n) :
+    WellFormed (colgroup content attrs rawAttrs) :=
+  elementOf_wellFormed _ _ _ _ _ hcontent
 
 theorem table_wellFormed (body : TableBody) (attrs : HtmlAttrs)
     (rawAttrs : List (String × String)) (caption : Option (Node .tableCaption))

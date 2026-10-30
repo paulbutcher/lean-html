@@ -85,10 +85,14 @@ open Html
 
 #guard (SlotAttrs.render { name := "header", id := "i" }).render = " name=\"header\" id=\"i\""
 
-#guard (SourceAttrs.render
-    { src := "a.mp4", srcset := "a-2x.mp4 2x", type := "video/mp4",
-      media := "(min-width: 600px)", id := "i" }).render
-  = " src=\"a.mp4\" srcset=\"a-2x.mp4 2x\" type=\"video/mp4\" media=\"(min-width: 600px)\" id=\"i\""
+#guard (SourceAttrs.render { src := "a.mp4", type := "video/mp4", id := "i" }).render
+  = " src=\"a.mp4\" type=\"video/mp4\" id=\"i\""
+
+#guard (PictureSourceAttrs.render
+    { srcset := "a-2x.png 2x", sizes := "50vw", media := "(min-width: 600px)", type := "image/png",
+      width := "300", height := "150", id := "i" }).render
+  = " srcset=\"a-2x.png 2x\" sizes=\"50vw\" media=\"(min-width: 600px)\" type=\"image/png\"" ++
+    " width=\"300\" height=\"150\" id=\"i\""
 
 #guard (TrackAttrs.render
     { src := "a.vtt", kind := "subtitles", srclang := "en", label := "English",

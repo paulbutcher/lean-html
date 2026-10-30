@@ -2,13 +2,15 @@
 
 ## [0.12.0] - 2026-10-30
 
-* Child order and count are typed: `table`, `head`, `details`, `fieldset`, `figure`, `dl`, `picture`, `hgroup`, `ruby`, `video`, and `audio` take their children as separate arguments, and `document` takes a `head` and a `body`
-* `caption`, `dt`, `dd`, `summary`, `legend`, `figcaption`, `title`, `base`, `source`, `track`, `rt`, and `rp` each have a category of their own, valid only where their parent allows
-* `p`, `h1` to `h6`, and `img` return the narrower categories `paragraph`, `heading`, and `image`, which widen to flow or phrasing content by coercion
+* Child order and count are typed: `table`, `head`, `details`, `fieldset`, `figure`, `dl`, `picture`, `hgroup`, `ruby`, `colgroup`, `video`, and `audio` take their children as separate arguments, and `document` takes a `head` and a `body`
+* `caption`, `dt`, `dd`, `summary`, `legend`, `figcaption`, `title`, `base`, `track`, `rt`, and `rp` each have a category of their own, valid only where their parent allows
+* `p`, `h1` to `h6`, `hgroup`, and `img` return the narrower categories `paragraph`, `heading`, `headingGroup`, and `image`, which widen by coercion
+* `summary` and `legend` accept heading content
 * Text coerces only to phrasing content, `Node.text` returning a `Node .phrasing`, and other categories accept only a `Whitespace` value
 * `Node.render` takes `lineBreaks`, which lays out children as cmark does; lean-markdown's GFM tables, which put `"\n"` leaves between table sections, need it instead
-* `script`, `template`, `link`, and `meta_` take their category, `head` content or flow or phrasing, from their context
-* `src` moves from `VideoAttrs` and `AudioAttrs` to the `MediaSource` argument, `iframe` takes no children, and `picture` is phrasing content
+* `script`, `template`, `link`, `meta_`, `noscript`, and `source` take their category from their context
+* `script` and `template` may stand among list children, `noscript` in `head` holds only `link` and `meta`, and `source` in a `picture` takes `PictureSourceAttrs`
+* `src` moves from `VideoAttrs` and `AudioAttrs` to the `MediaSource` argument, `SourceAttrs` requires `src` and loses `srcset` and `media`, `iframe` takes no children, and `picture` is phrasing content
 * `Node.widen` replaces `Node.toFlow`, `Node.toSelectChild`, and `Node.toTableSection`, and a category per table part replaces `Category.tableSection`
 
 ## [0.11.0] - 2026-10-21

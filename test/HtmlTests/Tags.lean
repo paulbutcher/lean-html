@@ -133,9 +133,9 @@ open Html
 #guard Node.render (hr) = "<hr>"
 #guard Node.render (picture [] (img { src := "a.png", alt := "d" }))
   = "<picture><img src=\"a.png\" alt=\"d\"></picture>"
-#guard Node.render (source) = "<source>"
 #guard Node.render (source { src := "a.mp4", type := "video/mp4" })
   = "<source src=\"a.mp4\" type=\"video/mp4\">"
+#guard Node.render (source (cat := .pictureSource) { srcset := "a.png" }) = "<source srcset=\"a.png\">"
 #guard Node.render (track { src := "a.vtt" }) = "<track src=\"a.vtt\">"
 #guard Node.render (iframe { src := "/embed" }) = "<iframe src=\"/embed\"></iframe>"
 #guard Node.render (embed) = "<embed>"
@@ -153,7 +153,8 @@ open Html
 #guard Node.render (area { href := "#a", alt := "Area A" }) = "<area href=\"#a\" alt=\"Area A\">"
 #guard Node.render table = "<table></table>"
 #guard Node.render (caption []) = "<caption></caption>"
-#guard Node.render (colgroup []) = "<colgroup></colgroup>"
+#guard Node.render colgroup = "<colgroup></colgroup>"
+#guard Node.render (colgroup (.span "2")) = "<colgroup span=\"2\"></colgroup>"
 #guard Node.render (col) = "<col>"
 #guard Node.render (col { span := "2" }) = "<col span=\"2\">"
 #guard Node.render (tfoot []) = "<tfoot></tfoot>"

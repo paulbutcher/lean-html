@@ -197,20 +197,27 @@ structure SlotAttrs extends HtmlAttrs where
 def SlotAttrs.render (a : SlotAttrs) : Attrs :=
   optAttr "name" a.name ++ HtmlAttrs.render a.toHtmlAttrs
 
-/-- `<source>`
-Dual-purpose in the HTML spec:
-- inside `<picture>` it's `srcset`/`type`/`media` (no `src`)
-- inside `<video>`/`<audio>` it's `src`/`type` (no `srcset`)
-not distinguished here. -/
+/-- `<source>` inside `<video>` or `<audio>` -/
 structure SourceAttrs extends HtmlAttrs where
-  src : Option String := none
-  srcset : Option String := none
+  src : String
   type : Option String := none
-  media : Option String := none
 
 def SourceAttrs.render (a : SourceAttrs) : Attrs :=
-  optAttr "src" a.src ++ optAttr "srcset" a.srcset ++ optAttr "type" a.type ++
-    optAttr "media" a.media ++ HtmlAttrs.render a.toHtmlAttrs
+  reqAttr "src" a.src ++ optAttr "type" a.type ++ HtmlAttrs.render a.toHtmlAttrs
+
+/-- `<source>` inside `<picture>` -/
+structure PictureSourceAttrs extends HtmlAttrs where
+  srcset : String
+  sizes : Option String := none
+  media : Option String := none
+  type : Option String := none
+  width : Option String := none
+  height : Option String := none
+
+def PictureSourceAttrs.render (a : PictureSourceAttrs) : Attrs :=
+  reqAttr "srcset" a.srcset ++ optAttr "sizes" a.sizes ++ optAttr "media" a.media ++
+    optAttr "type" a.type ++ optAttr "width" a.width ++ optAttr "height" a.height ++
+    HtmlAttrs.render a.toHtmlAttrs
 
 /-- `<track>` -/
 structure TrackAttrs extends HtmlAttrs where

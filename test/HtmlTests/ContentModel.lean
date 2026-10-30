@@ -40,6 +40,35 @@ open Html
 #guard Node.render (hgroup [p ["Over"]] (h1 ["Title"]) [p ["Under"]])
   = "<hgroup><p>Over</p><h1>Title</h1><p>Under</p></hgroup>"
 
+-- Heading content, `hgroup` included, may stand in `<summary>` and `<legend>`.
+#guard Node.render (details (summary [h2 ["Title"], " more"]))
+  = "<details><summary><h2>Title</h2> more</summary></details>"
+#guard Node.render (fieldset [] (legend := legend [hgroup [] (h1 ["Title"])]))
+  = "<fieldset><legend><hgroup><h1>Title</h1></hgroup></legend></fieldset>"
+
+-- Script-supporting elements intermix through `List` arguments, and `<template>` among `<col>`s.
+#guard Node.render (ul [li ["a"], script { src := "a.js" }]) = "<ul><li>a</li><script src=\"a.js\"></script></ul>"
+#guard Node.render (table [tr [td ["1"], script { src := "a.js" }], template []]
+    (colgroups := [colgroup [col, template []]]))
+  = "<table><colgroup><col><template></template></colgroup>" ++
+    "<tr><td>1</td><script src=\"a.js\"></script></tr><template></template></table>"
+#guard Node.render (select [option "a", script { src := "a.js" }])
+  = "<select><option>a</option><script src=\"a.js\"></script></select>"
+#guard Node.render (picture [script { src := "a.js" }] (img { src := "a.png", alt := "A" }))
+  = "<picture><script src=\"a.js\"></script><img src=\"a.png\" alt=\"A\"></picture>"
+#guard Node.render (dl (.divs [dlDiv { term := dt ["A"], desc := dd ["a"] }, script { src := "a.js" }]))
+  = "<dl><div><dt>A</dt><dd>a</dd></div><script src=\"a.js\"></script></dl>"
+
+-- A `<colgroup>` has a `span` or `<col>` children.
+#guard Node.render (table (colgroups := [colgroup (.span "2"), colgroup [col]]))
+  = "<table><colgroup span=\"2\"></colgroup><colgroup><col></colgroup></table>"
+
+-- In `<head>`, a `<noscript>` holds `link` and `meta`.
+#guard document (head (title "T") [noscript [link { rel := "stylesheet", href := "n.css" }]])
+    (body [noscript ["Enable scripts"]])
+  = "<!DOCTYPE html><html><head><noscript><link rel=\"stylesheet\" href=\"n.css\"></noscript>" ++
+    "<title>T</title></head><body><noscript>Enable scripts</noscript></body></html>"
+
 -- A tree built dynamically needs no proof.
 #guard
   let entries := [("a", "1"), ("b", "2")]
@@ -76,7 +105,8 @@ example : WellFormedHtml .html5
     (Node.render (details (summary ["More"]) [p ["Body"]]) (lineBreaks := true)) :=
   Node.render_wellFormed _
     (Node.details_wellFormed _ _ _ _
-      (Node.elementOf_wellFormed _ _ _ _ _ (by simpa using Node.text_wellFormed "More"))
+      (Node.elementOf_wellFormed _ _ _ _ _
+        (by simpa using Node.widen_wellFormed (b := .phrasingOrHeading) (Node.text_wellFormed "More")))
       (by
         simp only [List.mem_singleton, forall_eq]
         exact Node.widen_wellFormed
@@ -152,26 +182,26 @@ example : Node .flow := div [caption ["x"]]
 
 /--
 error: Application type mismatch: The argument
-  summary [Node.text "x"]
+  summary [(Node.text "x").widen]
 has type
   Node Category.summary
 but is expected to have type
   Node Category.flow
 in the application
-  List.cons (summary [Node.text "x"])
+  List.cons (summary [(Node.text "x").widen])
 -/
 #guard_msgs in
 example : Node .flow := div [summary ["x"]]
 
 /--
 error: Application type mismatch: The argument
-  legend [Node.text "x"]
+  legend [(Node.text "x").widen]
 has type
   Node Category.legend
 but is expected to have type
   Node Category.flow
 in the application
-  List.cons (legend [Node.text "x"])
+  List.cons (legend [(Node.text "x").widen])
 -/
 #guard_msgs in
 example : Node .flow := div [legend ["x"]]
@@ -203,17 +233,15 @@ in the application
 example : Node .flow := div [title "x"]
 
 /--
-error: Application type mismatch: The argument
-  source
-has type
-  Node Category.source
-but is expected to have type
-  Node Category.flow
-in the application
-  List.cons source
+error: failed to synthesize instance of type class
+  SourceContext Category.flow ?m.3
+
+Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+---
+error: invalid {...} notation, expected type is not known
 -/
 #guard_msgs in
-example : Node .flow := div [source]
+example : Node .flow := div [source { src := "a.mp4" }]
 
 /--
 error: Application type mismatch: The argument
@@ -258,13 +286,13 @@ example : Node .flow := details (p ["x"])
 
 /--
 error: Application type mismatch: The argument
-  summary [Node.text "b"]
+  summary [(Node.text "b").widen]
 has type
   Node Category.summary
 but is expected to have type
   Node Category.flow
 in the application
-  List.cons (summary [Node.text "b"])
+  List.cons (summary [(Node.text "b").widen])
 -/
 #guard_msgs in
 example : Node .flow := details (summary ["a"]) [summary ["b"]]
@@ -272,13 +300,13 @@ example : Node .flow := details (summary ["a"]) [summary ["b"]]
 -- `<fieldset>`: a `<legend>` only as the optional first child.
 /--
 error: Application type mismatch: The argument
-  legend [Node.text "x"]
+  legend [(Node.text "x").widen]
 has type
   Node Category.legend
 but is expected to have type
   Node Category.flow
 in the application
-  List.cons (legend [Node.text "x"])
+  List.cons (legend [(Node.text "x").widen])
 -/
 #guard_msgs in
 example : Node .flow := fieldset [legend ["x"]]
@@ -336,7 +364,7 @@ error: Application type mismatch: The argument
 has type
   Node Category.image
 but is expected to have type
-  Node Category.source
+  Node Category.pictureSource
 in the application
   List.cons (img { src := "a", alt := "a" })
 -/
@@ -371,17 +399,15 @@ in the application
 example : Node .flow := video (.sources [track { src := "a.vtt" }])
 
 /--
-error: Application type mismatch: The argument
-  source
-has type
-  Node Category.source
-but is expected to have type
-  Node Category.flow
-in the application
-  List.cons source
+error: failed to synthesize instance of type class
+  SourceContext Category.flow ?m.6
+
+Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+---
+error: invalid {...} notation, expected type is not known
 -/
 #guard_msgs in
-example : Node .flow := video (.src "a.mp4") [] [source]
+example : Node .flow := video (.src "a.mp4") [] [source { src := "a.mp4" }]
 
 -- `<ruby>`: annotations aren't base text, and `<rp>` only brackets `<rt>`.
 /--
@@ -483,5 +509,107 @@ Hint: Type class instance resolution failures can be inspected with the `set_opt
 -/
 #guard_msgs in
 example : Node .flow := details (Node.whitespace .newline)
+
+-- `<summary>` and `<legend>`: heading content, but not other flow content, and `<hgroup>` holds
+-- an `h1` to `h6`, not another `<hgroup>`.
+/--
+error: Application type mismatch: The argument
+  p [Node.text "x"]
+has type
+  Node Category.paragraph
+but is expected to have type
+  Node Category.phrasingOrHeading
+in the application
+  List.cons (p [Node.text "x"])
+-/
+#guard_msgs in
+example : Node .summary := summary [p ["x"]]
+
+/--
+error: Application type mismatch: The argument
+  hgroup [] (h1 [Node.text "x"])
+has type
+  Node Category.headingGroup
+but is expected to have type
+  Node Category.heading
+in the application
+  @hgroup [] (hgroup [] (h1 [Node.text "x"]))
+-/
+#guard_msgs in
+example : Node .headingGroup := hgroup [] (hgroup [] (h1 ["x"]))
+
+-- Script-supporting elements: never among a `<colgroup>`'s columns or a media element's
+-- sources, and never in place of a required or optional element.
+/--
+error: failed to synthesize instance of type class
+  ScriptContext Category.tableColumn
+
+Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+-/
+#guard_msgs in
+example : Node .tableColumnGroup := colgroup [col, script { src := "a.js" }]
+
+/--
+error: failed to synthesize instance of type class
+  ScriptContext Category.source
+
+Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+-/
+#guard_msgs in
+example : Node .flow := video (.sources [script { src := "a.js" }])
+
+/--
+error: failed to synthesize instance of type class
+  ScriptContext Category.term
+
+Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+-/
+#guard_msgs in
+example : DlGroup := { term := script { src := "a.js" }, desc := dd ["x"] }
+
+/--
+error: failed to synthesize instance of type class
+  ScriptContext Category.tableHead
+
+Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+-/
+#guard_msgs in
+example : Node .flow := table (thead := some (script { src := "a.js" }))
+
+-- `<source>`: `srcset` in a `<picture>`, `src` in a media element.
+/--
+error: `src` is not a field of structure `PictureSourceAttrs`
+-/
+#guard_msgs in
+example : Node .phrasing := picture [source { srcset := "a.png", src := "a.png" }] (img { src := "a.png", alt := "A" })
+
+/--
+error: `srcset` is not a field of structure `SourceAttrs`
+-/
+#guard_msgs in
+example : Node .flow := video (.sources [source { src := "a.mp4", srcset := "a.mp4" }])
+
+-- `<noscript>` in `<head>`: only `link` and `meta`.
+/--
+error: failed to synthesize instance of type class
+  ScriptContext Category.noscriptMetadata
+
+Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+-/
+#guard_msgs in
+example : Node .head := head (title "T") [noscript [script { src := "a.js" }]]
+
+/--
+error: Application type mismatch: The argument
+  "x"
+has type
+  String
+but is expected to have type
+  Node Category.noscriptMetadata
+in the application
+  List.cons "x"
+-/
+#guard_msgs in
+example : Node .head := head (title "T") [noscript ["x"]]
 
 end HtmlTests

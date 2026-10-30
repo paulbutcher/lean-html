@@ -15,16 +15,20 @@ element whose parent fixes where it may appear: a `<li>`, `<dt>`, `<tr>`, `<summ
 `<title>`, and so on is valid only in the argument of its parent's tag function that the content
 model reserves for it. Where that argument is an `Option`, a single node, or a sum type, order
 and count are enforced too.
-`heading` (`h1`-`h6`), `paragraph` (`p`), and `image` (`img`) are flow or phrasing content
-narrowed so that `hgroup` and `picture` can demand exactly them; `Subcategory` widens them, and
-the other subset relations, back out. -/
+`heading` (`h1`-`h6`), `headingGroup` (`hgroup`), `paragraph` (`p`), and `image` (`img`) are
+flow or phrasing content narrowed so that `hgroup` and `picture` can demand exactly them;
+`Subcategory` widens them, and the other subset relations, back out. `phrasingOrHeading` is what
+`summary` and `legend` hold, and `noscriptMetadata` what a `noscript` in `<head>` holds. -/
 inductive Category where
   | flow
   | phrasing
+  | phrasingOrHeading
   | heading
+  | headingGroup
   | paragraph
   | image
   | metadata
+  | noscriptMetadata
   | title
   | base
   | head
@@ -37,6 +41,7 @@ inductive Category where
   | summary
   | legend
   | source
+  | pictureSource
   | track
   | rubyText
   | rubyParenthesis
@@ -58,13 +63,15 @@ def Category.isPhrasing : Category → Bool
   | .phrasing | .image | .rubyText | .rubyParenthesis => true
   | _ => false
 
-/-- `a` is valid wherever `b` is, so a `Node a` coerces to a `Node b`. Each pair is an instance
-of its own rather than derived by transitivity, which would leave coercion search a generic
-instance to chain through. -/
+/-- `a` is valid wherever `b` is, so a `Node a` coerces to a `Node b`. -/
 class Subcategory (a b : Category) : Prop
 
 instance : Subcategory .phrasing .flow := ⟨⟩
+instance : Subcategory .phrasing .phrasingOrHeading := ⟨⟩
 instance : Subcategory .heading .flow := ⟨⟩
+instance : Subcategory .heading .phrasingOrHeading := ⟨⟩
+instance : Subcategory .headingGroup .flow := ⟨⟩
+instance : Subcategory .headingGroup .phrasingOrHeading := ⟨⟩
 instance : Subcategory .paragraph .flow := ⟨⟩
 instance : Subcategory .image .phrasing := ⟨⟩
 instance : Subcategory .image .flow := ⟨⟩
@@ -79,11 +86,12 @@ class Transparent (cat : Category) : Prop
 instance : Transparent .flow := ⟨⟩
 instance : Transparent .phrasing := ⟨⟩
 
-/-- The categories `script`, `template`, `link`, and `meta` can take on: `<head>` content, and
-flow or phrasing content in the body. -/
+/-- The categories `link` and `meta` can take on: `<head>` content, including a `<noscript>`
+there, and flow or phrasing content in the body. -/
 class Metadata (cat : Category) : Prop
 
 instance : Metadata .metadata := ⟨⟩
+instance : Metadata .noscriptMetadata := ⟨⟩
 instance : Metadata .flow := ⟨⟩
 instance : Metadata .phrasing := ⟨⟩
 
@@ -94,11 +102,14 @@ class InterElement (cat : Category) : Prop
 
 instance : InterElement .flow := ⟨⟩
 instance : InterElement .phrasing := ⟨⟩
+instance : InterElement .phrasingOrHeading := ⟨⟩
 instance : InterElement .paragraph := ⟨⟩
 instance : InterElement .metadata := ⟨⟩
+instance : InterElement .noscriptMetadata := ⟨⟩
 instance : InterElement .listItem := ⟨⟩
 instance : InterElement .descriptionGroup := ⟨⟩
 instance : InterElement .source := ⟨⟩
+instance : InterElement .pictureSource := ⟨⟩
 instance : InterElement .track := ⟨⟩
 instance : InterElement .option := ⟨⟩
 instance : InterElement .selectChild := ⟨⟩
@@ -107,6 +118,34 @@ instance : InterElement .tableColumn := ⟨⟩
 instance : InterElement .tableBody := ⟨⟩
 instance : InterElement .tableRow := ⟨⟩
 instance : InterElement .tableCell := ⟨⟩
+
+/-- The categories `script` can take on: metadata, flow, and phrasing content, and those of a
+`List` argument whose parent lets script-supporting elements intermix with its children. As with
+`InterElement`, a category that also fills a required argument is left out, so a script can't
+stand in for a required `<dt>` or `<dd>`. -/
+class ScriptContext (cat : Category) : Prop
+
+instance : ScriptContext .metadata := ⟨⟩
+instance : ScriptContext .flow := ⟨⟩
+instance : ScriptContext .phrasing := ⟨⟩
+instance : ScriptContext .phrasingOrHeading := ⟨⟩
+instance : ScriptContext .paragraph := ⟨⟩
+instance : ScriptContext .listItem := ⟨⟩
+instance : ScriptContext .descriptionGroup := ⟨⟩
+instance : ScriptContext .pictureSource := ⟨⟩
+instance : ScriptContext .option := ⟨⟩
+instance : ScriptContext .selectChild := ⟨⟩
+instance : ScriptContext .tableColumnGroup := ⟨⟩
+instance : ScriptContext .tableBody := ⟨⟩
+instance : ScriptContext .tableRow := ⟨⟩
+instance : ScriptContext .tableCell := ⟨⟩
+
+/-- The categories `template` can take on: wherever `script` can, and among a `<colgroup>`'s
+`<col>` children, which admit `template` but not `script`. -/
+class TemplateContext (cat : Category) : Prop
+
+instance [ScriptContext cat] : TemplateContext cat := ⟨⟩
+instance : TemplateContext .tableColumn := ⟨⟩
 
 /-- HTML's ASCII whitespace. -/
 @[expose] def isAsciiWhitespace (c : Char) : Bool :=
@@ -616,7 +655,11 @@ end Node
 -- Instance bodies are exposed to importers, so they cannot mention `Node.mk`. One instance per
 -- `Subcategory` pair, since `Coe` searches from its target and so can't solve for the source.
 instance : Coe (Node .phrasing) (Node .flow) := ⟨Node.widen⟩
+instance : Coe (Node .phrasing) (Node .phrasingOrHeading) := ⟨Node.widen⟩
 instance : Coe (Node .heading) (Node .flow) := ⟨Node.widen⟩
+instance : Coe (Node .heading) (Node .phrasingOrHeading) := ⟨Node.widen⟩
+instance : Coe (Node .headingGroup) (Node .flow) := ⟨Node.widen⟩
+instance : Coe (Node .headingGroup) (Node .phrasingOrHeading) := ⟨Node.widen⟩
 instance : Coe (Node .paragraph) (Node .flow) := ⟨Node.widen⟩
 instance : Coe (Node .image) (Node .phrasing) := ⟨Node.widen⟩
 instance : Coe (Node .image) (Node .flow) := ⟨Node.widen⟩

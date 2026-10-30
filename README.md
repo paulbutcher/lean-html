@@ -49,11 +49,11 @@ def page : String :=
 
 Each element's children are checked against the HTML Living Standard's content model for it, as far as its direct children go.
 
-- An element valid only inside a particular parent, such as `li`, `dt`, `tr`, `summary`, `legend`, `figcaption`, `caption`, `title`, `source`, or `rt`, has a category of its own, so `div [ dt [ "x" ] ]` is a type error.
-- Where the order or count of children is fixed, the tag function takes them as separate arguments: `document head body`, `head title children`, `details summary children`, `picture sources img`, `hgroup before heading after`, and `ruby`, `dl`, `video`, and `audio` through `RubySegment`, `DlContent`, and `MediaSource`.
+- An element valid only inside a particular parent, such as `li`, `dt`, `tr`, `summary`, `legend`, `figcaption`, `caption`, `title`, `source`, or `rt`, has a category of its own, so `div [ dt [ "x" ] ]` is a type error. One that changes with its context takes its category from there: `source` needs `srcset` in a `picture` and `src` in a media element, `noscript` holds only `link` and `meta` in `head`, and `script` and `template` may stand among the children of any list argument whose element admits them.
+- Where the order or count of children is fixed, the tag function takes them as separate arguments: `document head body`, `head title children`, `details summary children`, `picture sources img`, `hgroup before heading after`, and `ruby`, `dl`, `colgroup`, `video`, and `audio` through `RubySegment`, `DlContent`, `ColgroupContent`, and `MediaSource`.
 - Optional parts are named arguments after `attrs`, emitted in the order the standard fixes whatever order they are passed in: `table`'s `caption`, `colgroups`, `thead`, and `tfoot`, `fieldset`'s `legend`, `head`'s `base`, and `figure`'s `caption`, first or last.
 - Not modelled: constraints on descendants rather than children, such as no interactive content inside `a` or `button`, no `form` inside `form`, no `header` or `footer` inside `footer`, no `table` inside `caption`, and no media element inside a media element's fallback.
-- Nor anything that depends on attributes, such as `link` and `meta` being allowed in the body only with particular attributes, or `rawAttrs` adding a `src` to a `video` with `<source>` children. Some valid markup is rejected: heading content in `summary` or `legend`, `script` or `template` among a table's, list's, or `dl`'s children, and `noscript` in `head`.
+- Nor any other rule that depends on attributes, such as `link` and `meta` being allowed in the body only with particular attributes, or `rawAttrs` adding a `src` to a `video` with `<source>` children. Some valid markup is rejected: `script` or `template` between a table's optional parts, or within a group of `dt` and `dd`, where there is no list to hold them.
 
 ## Formal verification
 
