@@ -4,14 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 module
 
-import Html.Document
-import Html.Node
-import Html.Render
-import Html.Tags
-meta import Html.Document
-meta import Html.Node
-meta import Html.Render
-meta import Html.Tags
+import Html
+meta import Html
 
 namespace HtmlTests
 

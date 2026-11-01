@@ -4,62 +4,31 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 module
 
-public import Html.Dialect
+public import HtmlRenderer
 public import Html.Node
-public import Html.Render
-public import Html.Escape
 public import Html.Attrs
 public import Html.Tags
-public import Html.Document
 
 /-!
 # `Html`: a typed HTML5 library
 
-Renders well-formed, escaped HTML from Lean values, using Lean's type
-system to make illegal nesting and illegal child order unrepresentable.
+Builds HTML from Lean values, using Lean's type system to make illegal
+nesting and illegal child order unrepresentable.
 
-The tree is lean-html-model's: `Node cat` (`Html/Node.lean`) is a node valid
-wherever category `cat` is, whose children were checked against its content
-model when it was built, and which widens to any category its own is valid
-wherever. The tag functions (`Html/Tags.lean`) build it, with attributes as
-each element's payload: an `Attrs` value (`Html/Escape.lean`) rather than a
-pre-rendered string, which leaves `Attrs.render` as the single place names are
-sanitized and values escaped. The tree holds text raw; rendering
-(`Html/Render.lean`) escapes it and lays it out, from the tree erased to
-`Tree`.
+The tree is lean-html-model's: `Node cat` is a node valid wherever category
+`cat` is, whose children were checked against its content model when it was
+built, and which widens to any category its own is valid wherever. The tag
+functions (`Html/Tags.lean`) build it, with attributes as each element's
+payload: an `Attrs` value rather than a pre-rendered string.
 
-## Dialects
+`Node`, `Attrs`, rendering, dialects, `document`, the well-formedness
+theorem, and `Node.unsafeRaw` come from lean-html-renderer, which this
+module re-exports; its documentation describes them.
 
-`Dialect` (`Html/Dialect.lean`) chooses the serialization, and is an
-argument to `Node.render`, `Node.renderPretty`, and `document`, so one tree
-can be emitted either way. `.html5`, the default, is the usual HTML syntax.
-`.xhtml` is XML: every element either closes or self-closes (`<br />`),
-every boolean attribute carries a value (`disabled="disabled"`), and
-`document` declares the XHTML namespace on `<html>`.
-
-## Well-formedness
-
-`Node.render_wellFormed` shows that, given no `unsafeRaw` use,
-`Node.render` always produces, with or without `lineBreaks`, well-formed
-markup: balanced tags, no unescaped `<`/`>` outside tag delimiters, and
-every attribute run of the shape its dialect admits, with no name repeated
-(`Attrs.render_wellFormed`).
-`WellFormedHtml` is indexed by the dialect, and at `.xhtml` has neither an
-unclosed void tag nor a bare attribute, so the theorem there says the output
-is well-formed XML. Its hypothesis, that the node contains no verbatim markup,
-is `Node.hasVerbatim`, which is decidable. `escape_safe`,
-`sanitizeAttrName_safe`, and `Attrs.render_safe` (`Html/Escape.lean`), the
-escaping-safety facts that proof rests on, are public too. The theorem covers
-`Node.render`; it says nothing about `Node.renderPretty`, whose interposed
-indentation would need a side-condition that `unit` contains no `<`/`>`.
-
-## The one remaining escape hatch
+## Attributes
 
 `rawAttrs : List (String × String)`, present on every tag, is safe: names
 are sanitized and values escaped, so a name containing e.g. a space or `"`
 is neutered rather than breaking out of the tag. The one true escape hatch
-is `Node.unsafeRaw : String → Node cat`: verbatim, unescaped markup,
-trusted as-is, valid in any category. Misuse can create XSS
-vulnerabilities, and it's exactly what `Node.render_wellFormed`'s hypothesis
-rules out.
+is the renderer's `Node.unsafeRaw`.
 -/

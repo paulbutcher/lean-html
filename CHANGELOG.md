@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.14.0] - 2026-11-01
+
+* Rendering, `Node`, `Attrs`, `Dialect`, and `document` come from lean-html-renderer, which `import Html` re-exports
+* Breaking: `Html.Escape`, `Html.Render`, `Html.Dialect`, and `Html.Document` are gone; import `Html` or the matching `HtmlRenderer` module instead
+
 ## [0.13.0] - 2026-11-01
 
 * Breaking: the tree is lean-html-model's, which checks each element's children against its content model; its own node primitives and content-model classes are gone, along with the per-tag well-formedness lemmas

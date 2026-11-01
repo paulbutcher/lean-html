@@ -42,8 +42,7 @@ def page : String :=
 - String literals can be used directly as phrasing or flow content, e.g. `p [ "Hi" ]`. Elsewhere only a `Whitespace` value is accepted, e.g. `ul [ li [ "a" ], Whitespace.newline, li [ "b" ] ]`.
 - `rawAttrs : List (String × String)` is accepted by every tag for attributes not otherwise covered; where a name repeats, ignoring ASCII case, the first occurrence wins, so a typed attribute takes precedence.
 - `Node.unsafeRaw : String → Node cat` inserts unescaped markup verbatim when you need it; the content is trusted as-is and not checked, so misuse can introduce XSS vulnerabilities.
-- Use `Node.render` for compact output or `Node.renderPretty` for indented output on an individual `Node`; use `document` to produce a full HTML document. `Node.render (lineBreaks := true)` puts each child that isn't phrasing content on a line of its own, as cmark does.
-- Pass `(dialect := .xhtml)` to any of the three for XML output instead of HTML5: every element closes or self-closes (`<br />`), every boolean attribute carries a value (`disabled="disabled"`), and `document` declares the XHTML namespace on `<html>`.
+- Rendering comes from [lean-html-renderer](https://github.com/paulbutcher/lean-html-renderer), which `import Html` re-exports: `Node.render` for compact output, `Node.renderPretty` for indented output, and `document` for a full HTML document, each taking `(dialect := .xhtml)` for XML instead of HTML5. Its README describes their options.
 
 ## Content model
 
@@ -57,13 +56,9 @@ Each element's children are checked against the HTML Living Standard's content m
 
 ## Formal verification
 
-- `Node.render_wellFormed`: given no `Node.unsafeRaw`, rendering always produces balanced tags, with no unescaped `<` or `>` anywhere outside a tag's own delimiters, with or without `lineBreaks`. At `(dialect := .xhtml)` the same theorem says the output is well-formed XML: every tag closed or self-closed, every attribute given a value.
-- `escape_safe`: escaped text and attribute values never contain a raw `<`, `>`, or `"`, so neither can break out of the markup around it.
-- `sanitizeAttrName_safe` and `sanitizeAttrName_start`: every attribute name is coerced to a valid XML `Name`, which is what makes an untrusted name in `rawAttrs` harmless.
-- `Attrs.render_safe` and `Attrs.render_wellFormed`: whatever fragments an `Attrs` value holds, it renders to a run of ` name="value"` pairs with no name repeated, bare boolean flags being admitted under `.html5` only.
+- `Node.render_wellFormed`, from lean-html-renderer: given no `Node.unsafeRaw`, rendering always produces well-formed markup, and at `(dialect := .xhtml)` well-formed XML. The renderer's README lists it and the escaping facts it rests on.
+- `sanitizeAttrName_safe`, from the same package, coerces every attribute name to a valid XML `Name`, which is what makes an untrusted name in `rawAttrs` harmless.
 - `Node.valid_erase`, from lean-html-model: every element's children in a tree satisfy its content model, stated on the erased tree that rendering consumes.
-
-`Node.render_wellFormed` takes as its hypothesis that the node contains no verbatim markup, `n.hasVerbatim = false`, which `decide +kernel` proves for a concrete tree. These cover `Node.render`, not `Node.renderPretty`, whose interposed indentation would need a side condition on `unit`, and they don't constrain `Node.unsafeRaw`, which is trusted by construction.
 
 ## License
 

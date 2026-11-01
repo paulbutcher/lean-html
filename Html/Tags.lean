@@ -5,7 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import Html.Node
-public import Html.Escape
+public import HtmlRenderer.Escape
 public import Html.Attrs
 
 /-!
