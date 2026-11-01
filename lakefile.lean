@@ -10,7 +10,7 @@ package html where
   version := v!"0.13.0"
   leanOptions := #[⟨`warningAsError, true⟩]
 
-require «html-model» from git "https://github.com/paulbutcher/lean-html-model" @ "v0.3.1"
+require «html-model» from git "https://github.com/paulbutcher/lean-html-model" @ "v0.4.0"
 
 @[default_target]
 lean_lib Html
