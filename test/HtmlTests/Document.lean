@@ -6,9 +6,11 @@ module
 
 import Html.Document
 import Html.Node
+import Html.Render
 import Html.Tags
 meta import Html.Document
 meta import Html.Node
+meta import Html.Render
 meta import Html.Tags
 
 namespace HtmlTests
@@ -47,6 +49,17 @@ open Html
   = "<!DOCTYPE html>\n<html>\n    <head>\n        <title>T</title>\n    </head>\n" ++
     "    <body>\n        <p>hi</p>\n    </body>\n</html>"
 
+-- Nothing in `<head>` renders, so each of its children has a line of its own, though `meta` and
+-- `link` are phrasing content in the body.
+#guard document (head (title "T") [meta_ [("charset", "utf-8")], link { rel := "icon", href := "i.png" }])
+    (body [p ["a", meta_ [("itemprop", "x")]]]) (pretty := true)
+  = "<!DOCTYPE html>\n<html>\n  <head>\n    <meta charset=\"utf-8\">\n" ++
+    "    <link rel=\"icon\" href=\"i.png\">\n    <title>T</title>\n  </head>\n" ++
+    "  <body>\n    <p>a<meta itemprop=\"x\"></p>\n  </body>\n</html>"
+#guard Node.render (head (title "T") [meta_ [("charset", "utf-8")], link { rel := "icon", href := "i.png" }])
+    (lineBreaks := true)
+  = "<head>\n<meta charset=\"utf-8\">\n<link rel=\"icon\" href=\"i.png\">\n<title>T</title>\n</head>"
+
 #guard document (head (title "T") [meta_ [("charset", "utf-8")]]) (body []) (dialect := .xhtml)
   = "<!DOCTYPE html><html xmlns=\"http://www.w3.org/1999/xhtml\">" ++
     "<head><meta charset=\"utf-8\" /><title>T</title></head><body></body></html>"
@@ -60,10 +73,14 @@ open Html
 
 -- A `<head>` needs exactly one `<title>`, which is not `<head>` content.
 /--
-error: failed to synthesize instance of type class
-  Metadata Category.title
-
-Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+error: Application type mismatch: The argument
+  meta_ [("charset", "utf-8")]
+has type
+  Node HtmlModel.Html.Cat.phrasingMetadata
+but is expected to have type
+  Node HtmlModel.Html.Cat.title
+in the application
+  @head (meta_ [("charset", "utf-8")])
 -/
 #guard_msgs in
 example : Node .head := head (meta_ [("charset", "utf-8")])
@@ -72,9 +89,9 @@ example : Node .head := head (meta_ [("charset", "utf-8")])
 error: Application type mismatch: The argument
   title "U"
 has type
-  Node Category.title
+  Node HtmlModel.Html.Cat.title
 but is expected to have type
-  Node Category.metadata
+  Node HtmlModel.Html.Cat.metadata
 in the application
   List.cons (title "U")
 -/
@@ -84,7 +101,7 @@ example : Node .head := head (title "T") [title "U"]
 -- Whitespace can't stand in for the title.
 /--
 error: failed to synthesize instance of type class
-  InterElement Category.title
+  HtmlModel.Web.Widens HtmlModel.Web.Cat.ws (HtmlModel.Web.Cat.html HtmlModel.Html.Cat.title)
 
 Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
 -/

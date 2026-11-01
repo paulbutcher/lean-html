@@ -5,8 +5,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 import Html.Node
+import Html.Render
 import Html.Tags
 meta import Html.Node
+meta import Html.Render
 meta import Html.Tags
 
 namespace HtmlTests
@@ -51,7 +53,7 @@ open Html
 #guard Node.render (base) = "<base>"
 #guard Node.render (base { href := "/", target := "_blank" }) = "<base href=\"/\" target=\"_blank\">"
 #guard Node.render (noscript (cat := .flow) []) = "<noscript></noscript>"
-#guard Node.render (template (cat := .flow) []) = "<template></template>"
+#guard Node.render (template []) = "<template></template>"
 #guard Node.render (canvas (cat := .flow) []) = "<canvas></canvas>"
 #guard Node.render (canvas (cat := .flow) [] { width := "300", height := "150" })
   = "<canvas width=\"300\" height=\"150\"></canvas>"
@@ -204,9 +206,9 @@ open Html
 error: Application type mismatch: The argument
   div []
 has type
-  Node Category.flow
+  Node HtmlModel.Html.Cat.flow
 but is expected to have type
-  Node Category.phrasing
+  Node HtmlModel.Html.Cat.phrasing
 in the application
   List.cons (div [])
 -/
@@ -219,9 +221,9 @@ example : Node .flow := p [div []]
 error: Application type mismatch: The argument
   div []
 has type
-  Node Category.flow
+  Node HtmlModel.Html.Cat.flow
 but is expected to have type
-  Node Category.listItem
+  Node HtmlModel.Html.Cat.listItemOrScript
 in the application
   List.cons (div [])
 -/
@@ -235,9 +237,9 @@ example : Node .flow := ul [div []]
 error: Application type mismatch: The argument
   button []
 has type
-  Node Category.phrasing
+  Node HtmlModel.Html.Cat.phrasing
 but is expected to have type
-  Node Category.selectChild
+  Node HtmlModel.Html.Cat.selectChild
 in the application
   List.cons (button [])
 -/
@@ -250,9 +252,9 @@ example : Node .phrasing := select [button []]
 error: Application type mismatch: The argument
   div []
 has type
-  Node Category.flow
+  Node HtmlModel.Html.Cat.flow
 but is expected to have type
-  Node Category.tableCell
+  Node HtmlModel.Html.Cat.tableCellOrScript
 in the application
   List.cons (div [])
 -/
@@ -302,7 +304,7 @@ example : Node .tableRow := tr [div []]
 -- phrasing content, so it can't carry a `<li>` into a `<ul>`.
 /--
 error: failed to synthesize instance of type class
-  Transparent Category.listItem
+  Transparent HtmlModel.Html.Cat.listItemOrScript
 
 Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
 -/

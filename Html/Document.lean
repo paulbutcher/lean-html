@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 module
 
-public import Html.Node
+public import Html.Render
 public import Html.Escape
 public import Html.Attrs
 public import Html.Tags
@@ -12,6 +12,8 @@ public import Html.Tags
 public section
 
 namespace Html
+
+open HtmlModel
 
 /-- Prepends `<!DOCTYPE html>` and wraps `head` and `body` in an `<html>` element.
 `pretty` selects indented output, with `unit` repeated per indentation level;
@@ -27,7 +29,8 @@ def document (head : Node .head) (body : Node .body)
     | .xhtml =>
       reqAttr "xmlns" "http://www.w3.org/1999/xhtml" ++ optAttr "lang" lang
         ++ optAttr "xml:lang" lang
-  let htmlNode : Node .flow := Node.elementSeq .flow "html" [head.child, body.child] attrs
+  let htmlNode : Node .document :=
+    Web.elem (.html .html) (.html .document) attrs segs![.one head, .one body]
   if pretty then "<!DOCTYPE html>\n" ++ Node.renderPretty htmlNode unit dialect
   else "<!DOCTYPE html>" ++ Node.render htmlNode dialect
 

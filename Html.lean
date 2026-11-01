@@ -6,6 +6,7 @@ module
 
 public import Html.Dialect
 public import Html.Node
+public import Html.Render
 public import Html.Escape
 public import Html.Attrs
 public import Html.Tags
@@ -17,16 +18,15 @@ public import Html.Document
 Renders well-formed, escaped HTML from Lean values, using Lean's type
 system to make illegal nesting and illegal child order unrepresentable.
 
-`Node cat` (`Html/Node.lean`) is a tree indexed by the content-model
-category it's valid in, with a private constructor: the only way to build
-one is through the primitives there, or the tag functions (`Html/Tags.lean`)
-built on them, so a well-typed program already has correct nesting and
-balanced tags. Where the content model fixes the order or count of children,
-the tag function takes them as separate arguments, so that is typed too.
-Attributes reach and are stored by those primitives as an `Attrs` value
-(`Html/Escape.lean`) rather than a pre-rendered string, which leaves
-`Attrs.render` as the single place names are sanitized and values escaped,
-and defers to render time how they are spelled.
+The tree is lean-html-model's: `Node cat` (`Html/Node.lean`) is a node valid
+wherever category `cat` is, whose children were checked against its content
+model when it was built, and which widens to any category its own is valid
+wherever. The tag functions (`Html/Tags.lean`) build it, with attributes as
+each element's payload: an `Attrs` value (`Html/Escape.lean`) rather than a
+pre-rendered string, which leaves `Attrs.render` as the single place names are
+sanitized and values escaped. The tree holds text raw; rendering
+(`Html/Render.lean`) escapes it and lays it out, from the tree erased to
+`Tree`.
 
 ## Dialects
 
@@ -46,23 +46,12 @@ every attribute run of the shape its dialect admits, with no name repeated
 (`Attrs.render_wellFormed`).
 `WellFormedHtml` is indexed by the dialect, and at `.xhtml` has neither an
 unclosed void tag nor a bare attribute, so the theorem there says the output
-is well-formed XML.
-It's established compositionally, so `Node.WellFormed` for a concrete tree
-follows from chaining the per-constructor lemmas (`element_wellFormed`,
-`text_wellFormed`, ...) over however that tree was built, with a lemma of its
-own for each tag function built on `Node.elementSeq` (`table_wellFormed`,
-...); `test/HtmlTests/Node.lean` works an example. `escape_safe`,
+is well-formed XML. Its hypothesis, that the node contains no verbatim markup,
+is `Node.hasVerbatim`, which is decidable. `escape_safe`,
 `sanitizeAttrName_safe`, and `Attrs.render_safe` (`Html/Escape.lean`), the
-escaping-safety facts that proof rests on, are public too.
-
-There's deliberately no `unsafeRaw_wellFormed`: a `text "hi"` and an
-`unsafeRaw "hi"` can be the literal same `Node`, so "was `unsafeRaw` used"
-isn't something a theorem can check after the fact, only something a
-*construction* can avoid. The theorem covers `Node.render`; it says
-nothing about `Node.renderPretty`, whose interposed indentation would need
-a side-condition that `unit` contains no `<`/`>`. Nor does it constrain the
-`tag` a caller hands `Node.element` directly; the tag functions all pass
-literals.
+escaping-safety facts that proof rests on, are public too. The theorem covers
+`Node.render`; it says nothing about `Node.renderPretty`, whose interposed
+indentation would need a side-condition that `unit` contains no `<`/`>`.
 
 ## The one remaining escape hatch
 
@@ -71,5 +60,6 @@ are sanitized and values escaped, so a name containing e.g. a space or `"`
 is neutered rather than breaking out of the tag. The one true escape hatch
 is `Node.unsafeRaw : String → Node cat`: verbatim, unescaped markup,
 trusted as-is, valid in any category. Misuse can create XSS
-vulnerabilities, and it's exactly what `Node.WellFormed` can't see through.
+vulnerabilities, and it's exactly what `Node.render_wellFormed`'s hypothesis
+rules out.
 -/

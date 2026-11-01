@@ -47,13 +47,13 @@ def page : String :=
 
 ## Content model
 
-Each element's children are checked against the HTML Living Standard's content model for it, as far as its direct children go.
+Each element's children are checked against the HTML Living Standard's content model for it, as far as its direct children go, by [lean-html-model](https://github.com/paulbutcher/lean-html-model), whose tree this library builds and renders.
 
-- An element valid only inside a particular parent, such as `li`, `dt`, `tr`, `summary`, `legend`, `figcaption`, `caption`, `title`, `source`, or `rt`, has a category of its own, so `div [ dt [ "x" ] ]` is a type error. One that changes with its context takes its category from there: `source` needs `srcset` in a `picture` and `src` in a media element, `noscript` holds only `link` and `meta` in `head`, and `script` and `template` may stand among the children of any list argument whose element admits them.
+- An element valid only inside a particular parent, such as `li`, `dt`, `tr`, `summary`, `legend`, `figcaption`, `caption`, `title`, `source`, or `rt`, has a category of its own, so `div [ dt [ "x" ] ]` is a type error. One that changes with its context takes its category from there: `source` needs `srcset` in a `picture` and `src` in a media element, `noscript` holds only `link` and `meta` in `head`, and `a` and the other transparent elements take flow or phrasing content. A list argument is typed by the category its position admits, which narrower categories widen to: `ul` takes `Node .listItemOrScript`, so an `li`, a `script`, a `template`, and a `Whitespace` value may all stand among its items.
 - Where the order or count of children is fixed, the tag function takes them as separate arguments: `document head body`, `head title children`, `details summary children`, `picture sources img`, `hgroup before heading after`, and `ruby`, `dl`, `colgroup`, `video`, and `audio` through `RubySegment`, `DlContent`, `ColgroupContent`, and `MediaSource`.
 - Optional parts are named arguments after `attrs`, emitted in the order the standard fixes whatever order they are passed in: `table`'s `caption`, `colgroups`, `thead`, and `tfoot`, `fieldset`'s `legend`, `head`'s `base`, and `figure`'s `caption`, first or last.
 - Not modelled: constraints on descendants rather than children, such as no interactive content inside `a` or `button`, no `form` inside `form`, no `header` or `footer` inside `footer`, no `table` inside `caption`, and no media element inside a media element's fallback.
-- Nor any other rule that depends on attributes, such as `link` and `meta` being allowed in the body only with particular attributes, or `rawAttrs` adding a `src` to a `video` with `<source>` children. Some valid markup is rejected: `script` or `template` between a table's optional parts, or within a group of `dt` and `dd`, where there is no list to hold them.
+- Nor any other rule that depends on attributes, such as `link` and `meta` being allowed in the body only with particular attributes, or `rawAttrs` adding a `src` to a `video` with `<source>` children. Some valid markup is rejected: `script` or `template` between a table's optional parts, or before the first `dt` or `dd` of a group, where there is no list to hold them.
 
 ## Formal verification
 
@@ -61,9 +61,9 @@ Each element's children are checked against the HTML Living Standard's content m
 - `escape_safe`: escaped text and attribute values never contain a raw `<`, `>`, or `"`, so neither can break out of the markup around it.
 - `sanitizeAttrName_safe` and `sanitizeAttrName_start`: every attribute name is coerced to a valid XML `Name`, which is what makes an untrusted name in `rawAttrs` harmless.
 - `Attrs.render_safe` and `Attrs.render_wellFormed`: whatever fragments an `Attrs` value holds, it renders to a run of ` name="value"` pairs with no name repeated, bare boolean flags being admitted under `.html5` only.
-- `element_wellFormed`, `text_wellFormed`, and their siblings: `Node.WellFormed` is compositional, so you can discharge it for a tree of your own by chaining one lemma per constructor it was built from, tag functions included; each tag function with structured arguments has its own, such as `table_wellFormed`.
+- `Node.valid_erase`, from lean-html-model: every element's children in a tree satisfy its content model, stated on the erased tree that rendering consumes.
 
-These cover `Node.render`, not `Node.renderPretty`, whose interposed indentation would need a side condition on `unit`. They constrain neither a tag name handed to `Node.element` directly (the tag functions all pass literals) nor `Node.unsafeRaw`, which is trusted by construction.
+`Node.render_wellFormed` takes as its hypothesis that the node contains no verbatim markup, `n.hasVerbatim = false`, which `decide +kernel` proves for a concrete tree. These cover `Node.render`, not `Node.renderPretty`, whose interposed indentation would need a side condition on `unit`, and they don't constrain `Node.unsafeRaw`, which is trusted by construction.
 
 ## License
 

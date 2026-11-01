@@ -9,8 +9,8 @@ public import Html.Escape
 public import Html.Attrs
 
 /-!
-Named tag functions, built on `Html/Node.lean`'s constructor shapes and
-`Html/Attrs.lean`'s typed attribute vocabulary.
+Named tag functions, building lean-html-model elements with `Html/Attrs.lean`'s typed attribute
+vocabulary as their payload.
 
 Scope notes:
 
@@ -29,221 +29,271 @@ Scope notes:
   single node for exactly one, and a sum type (`TableBody`, `DlContent`, `FigureCaption`,
   `MediaSource`, `RubyText`) for alternatives. An optional element always follows `attrs` and
   `rawAttrs`, and is passed by name.
-- Script-supporting elements (`script`, `template`) intermix with an element's children through
-  its `List` arguments. Between a table's optional parts, and within a group of `<dt>` and `<dd>`,
-  the spec admits them too but there is no list to hold them, so they are rejected.
+- A `List` argument is typed by the category its position admits, which a node of any narrower
+  category widens to: `ul` takes `Node .listItemOrScript`, which an `li`, a `script`, a
+  `template`, and inter-element whitespace all coerce to. Between a table's optional parts, and
+  before the first `<dt>` or `<dd>` of a group, the spec admits script-supporting elements too but
+  there is no list to hold them, so they are rejected.
 -/
 
 @[expose] public section
 
 namespace Html
 
+open HtmlModel
+
 def combineAttrs (specific : Attrs) (rawAttrs : List (String × String)) : Attrs :=
   specific ++ rawAttrs.map fun (n, v) => .value n v
+
+/-- An element of category `cat` whose children are one list of category `content`. -/
+abbrev listElement (e : HtmlModel.Html.Elem) (cat content : Category) (children : List (Node content))
+    (attrs : Attrs) (hc : Web.Cat.html cat ∈ Web.vocab.cats (.html e) := by decide +kernel)
+    (ok : Web.vocab.Admits (.html e) (.html cat) [.many (.html content)] := by admits) : Node cat :=
+  Web.elem (.html e) (.html cat) attrs segs![.many (Nodes.ofList children)] hc ok
+
+/-- An element of category `cat` with no children. -/
+abbrev voidElement (e : HtmlModel.Html.Elem) (cat : Category) (attrs : Attrs)
+    (hc : Web.Cat.html cat ∈ Web.vocab.cats (.html e) := by decide +kernel)
+    (ok : Web.vocab.Admits (.html e) (.html cat) [] := by admits) : Node cat :=
+  Web.elem (.html e) (.html cat) attrs segs![] hc ok
+
+/-- An element of category `cat` whose content is plain text, not nested elements. -/
+abbrev textElement (e : HtmlModel.Html.Elem) (cat : Category) (content : String) (attrs : Attrs)
+    (hc : Web.Cat.html cat ∈ Web.vocab.cats (.html e) := by decide +kernel)
+    (ok : Web.vocab.Admits (.html e) (.html cat) [.one .text] := by admits) : Node cat :=
+  Web.elem (.html e) (.html cat) attrs segs![.one (.text content)] hc ok
+
+/-- The categories an element with HTML5's transparent content model (`a`, `ins`, `canvas`,
+...) can take on from its context, so it can sit in a `<p>` or wrap a `<p>` in a `<div>`. -/
+class Transparent (cat : Category) : Prop where
+  cases : cat = .flow ∨ cat = .phrasing
+
+instance : Transparent .flow := ⟨.inl rfl⟩
+instance : Transparent .phrasing := ⟨.inr rfl⟩
+
+/-- A transparent element: one list of children of the category it takes. -/
+abbrev transparentElement (e : HtmlModel.Html.Elem) (cat : Category) [Transparent cat]
+    (children : List (Node cat)) (attrs : Attrs)
+    (hc : Web.Cat.html cat ∈ Web.vocab.cats (.html e))
+    (ok : Web.vocab.Admits (.html e) (.html cat) [.many (.html cat)]) : Node cat :=
+  listElement e cat cat children attrs hc ok
 
 -- Structure: flow content, flow children.
 def div (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "div" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .div .flow .flow children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def section_ (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "section" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .section .flow .flow children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def article (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "article" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .article .flow .flow children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def header (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "header" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .header .flow .flow children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def footer (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "footer" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .footer .flow .flow children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def nav (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "nav" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .nav .flow .flow children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def aside (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "aside" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .aside .flow .flow children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 /-- Any number of `<p>`, then one heading, then any number of `<p>`. -/
-def hgroup (before : List (Node .paragraph)) (heading : Node .heading)
-    (after : List (Node .paragraph) := []) (attrs : HtmlAttrs := {})
+def hgroup (before : List (Node .paragraphOrScript)) (heading : Node .heading)
+    (after : List (Node .paragraphOrScript) := []) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .headingGroup :=
-  Node.elementSeq .headingGroup "hgroup"
-    (before.map Node.child ++ heading.child :: after.map Node.child)
-    (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  Web.elem (.html .hgroup) (.html .headingGroup) (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+    segs![.many (Nodes.ofList before), .one heading, .many (Nodes.ofList after)]
 
 def address (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "address" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .address .flow .flow children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def main (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "main" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .main .flow .flow children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def search (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "search" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .search .flow .flow children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 /-- Exactly one `<title>` and at most one `<base>`. `base` renders first, so that it precedes
 every URL it resolves; `title` renders last, so that a long one can't push a
 `<meta charset>` among `children` out of the first 1024 bytes. -/
 def head (title : Node .title) (children : List (Node .metadata) := []) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) (base : Option (Node .base) := none) : Node .head :=
-  Node.elementSeq .head "head" (base.toList.map Node.child ++ children.map Node.child ++ [title.child])
-    (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  Web.elem (.html .head) (.html .head) (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+    segs![Seg.ofOption _ base, .many (Nodes.ofList children), .one title]
 
 def body (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .body :=
-  Node.elementOf .body .flow "body" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .body .body .flow children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def title (content : String) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .title :=
-  Node.textElement .title "title" content (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  textElement .title .title content (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 /-- Takes `rawAttrs` as its primary content rather than a typed
 attrs record, since a meta tag's shape varies by purpose:
 `[("charset", "utf-8")]`, `[("name", "viewport"), ("content", "...")]`,
 `[("http-equiv", "..."), ("content", "...")]`, and so on, with no one
 shape common enough to single out as required fields. -/
-def meta_ {cat : Category} [Metadata cat] (rawAttrs : List (String × String))
-    (attrs : HtmlAttrs := {}) : Node cat :=
-  Node.voidElement cat "meta" (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+def meta_ (rawAttrs : List (String × String)) (attrs : HtmlAttrs := {}) : Node .phrasingMetadata :=
+  voidElement .meta .phrasingMetadata (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
-def link {cat : Category} [Metadata cat] (attrs : LinkAttrs)
-    (rawAttrs : List (String × String) := []) : Node cat :=
-  Node.voidElement cat "link" (combineAttrs (LinkAttrs.render attrs) rawAttrs)
+def link (attrs : LinkAttrs) (rawAttrs : List (String × String) := []) : Node .phrasingMetadata :=
+  voidElement .link .phrasingMetadata (combineAttrs (LinkAttrs.render attrs) rawAttrs)
 
 def base (attrs : BaseAttrs := {}) (rawAttrs : List (String × String) := []) : Node .base :=
-  Node.voidElement .base "base" (combineAttrs (BaseAttrs.render attrs) rawAttrs)
+  voidElement .base .base (combineAttrs (BaseAttrs.render attrs) rawAttrs)
 
-def script {cat : Category} [ScriptContext cat] (attrs : ScriptAttrs)
-    (rawAttrs : List (String × String) := []) : Node cat :=
-  Node.element cat "script" [] (combineAttrs (ScriptAttrs.render attrs) rawAttrs)
+def script (attrs : ScriptAttrs) (rawAttrs : List (String × String) := []) :
+    Node .scriptSupporting :=
+  Web.elem (.html .script) (.html .scriptSupporting)
+    (combineAttrs (ScriptAttrs.render attrs) rawAttrs) segs![]
 
-/-- What a `<noscript>` in context `cat` holds: transparent content in the body, but only `link`
-and `meta` in `<head>`. -/
-class NoscriptContext (cat : Category) (content : outParam Category) where
-  build : List (Node content) → Attrs → Node cat
-  build_wellFormed :
-    ∀ children attrs, (∀ c ∈ children, Node.WellFormed c) → Node.WellFormed (build children attrs)
+/-- What a `<noscript>` in context `cat` holds: transparent content in the body, but only `link`,
+`meta`, and `style` in `<head>`. A function of the context, not a class's output, so that the
+children are elaborated against it rather than fixing it. -/
+abbrev noscriptContent : Category → Category
+  | .metadata => .noscriptMetadata
+  | cat => cat
 
-instance [Transparent cat] : NoscriptContext cat cat where
-  build children attrs := Node.transparentElement cat "noscript" children attrs
-  build_wellFormed _ _ h := Node.transparentElement_wellFormed _ _ _ _ _ .nil h
+/-- The contexts a `<noscript>` may stand in. -/
+class NoscriptContext (cat : Category) : Prop where
+  takes : Web.Cat.html cat ∈ Web.vocab.cats (.html .noscript)
+  admits : Web.vocab.Admits (.html .noscript) (.html cat) [.many (.html (noscriptContent cat))]
 
-instance : NoscriptContext .metadata .noscriptMetadata where
-  build children attrs := Node.elementOf .metadata .noscriptMetadata "noscript" children attrs
-  build_wellFormed _ _ h := Node.elementOf_wellFormed _ _ _ _ _ h
+instance : NoscriptContext .metadata := ⟨by decide, by decide +kernel⟩
+instance : NoscriptContext .flow := ⟨by decide, by decide +kernel⟩
+instance : NoscriptContext .phrasing := ⟨by decide, by decide +kernel⟩
 
-def noscript {cat content : Category} [NoscriptContext cat content] (children : List (Node content))
+def noscript {cat : Category} [h : NoscriptContext cat] (children : List (Node (noscriptContent cat)))
     (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node cat :=
-  NoscriptContext.build children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .noscript cat (noscriptContent cat) children
+    (combineAttrs (HtmlAttrs.render attrs) rawAttrs) h.takes h.admits
 
-def template {cat : Category} [TemplateContext cat] (children : List (Node .flow))
-    (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node cat :=
-  Node.elementOf cat .flow "template" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+def template (children : List (Node .flow)) (attrs : HtmlAttrs := {})
+    (rawAttrs : List (String × String) := []) : Node .template :=
+  listElement .template .template .flow children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def canvas {cat : Category} [Transparent cat] (children : List (Node cat))
     (attrs : CanvasAttrs := {}) (rawAttrs : List (String × String) := []) : Node cat :=
-  Node.transparentElement cat "canvas" children (combineAttrs (CanvasAttrs.render attrs) rawAttrs)
+  transparentElement .canvas cat children (combineAttrs (CanvasAttrs.render attrs) rawAttrs)
+    (by rcases Transparent.cases (cat := cat) with rfl | rfl <;> decide)
+    (by rcases Transparent.cases (cat := cat) with rfl | rfl <;> decide +kernel)
 
 def slot {cat : Category} [Transparent cat] (children : List (Node cat))
     (attrs : SlotAttrs := {}) (rawAttrs : List (String × String) := []) : Node cat :=
-  Node.transparentElement cat "slot" children (combineAttrs (SlotAttrs.render attrs) rawAttrs)
+  transparentElement .slot cat children (combineAttrs (SlotAttrs.render attrs) rawAttrs)
+    (by rcases Transparent.cases (cat := cat) with rfl | rfl <;> decide)
+    (by rcases Transparent.cases (cat := cat) with rfl | rfl <;> decide +kernel)
 
 def p (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .paragraph :=
-  Node.elementOf .paragraph .phrasing "p" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .p .paragraph .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def h1 (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .heading :=
-  Node.elementOf .heading .phrasing "h1" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .h1 .heading .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def h2 (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .heading :=
-  Node.elementOf .heading .phrasing "h2" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .h2 .heading .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def h3 (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .heading :=
-  Node.elementOf .heading .phrasing "h3" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .h3 .heading .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def h4 (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .heading :=
-  Node.elementOf .heading .phrasing "h4" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .h4 .heading .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def h5 (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .heading :=
-  Node.elementOf .heading .phrasing "h5" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .h5 .heading .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def h6 (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .heading :=
-  Node.elementOf .heading .phrasing "h6" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .h6 .heading .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
-def ul (children : List (Node .listItem)) (attrs : HtmlAttrs := {})
+def ul (children : List (Node .listItemOrScript)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.elementOf .flow .listItem "ul" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .ul .flow .listItemOrScript children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
-def ol (children : List (Node .listItem)) (attrs : OlAttrs := {})
+def ol (children : List (Node .listItemOrScript)) (attrs : OlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.elementOf .flow .listItem "ol" children (combineAttrs (OlAttrs.render attrs) rawAttrs)
+  listElement .ol .flow .listItemOrScript children (combineAttrs (OlAttrs.render attrs) rawAttrs)
 
 def li (children : List (Node .flow)) (attrs : LiAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .listItem :=
-  Node.elementOf .listItem .flow "li" children (combineAttrs (LiAttrs.render attrs) rawAttrs)
+  listElement .li .listItem .flow children (combineAttrs (LiAttrs.render attrs) rawAttrs)
 
-def menu (children : List (Node .listItem)) (attrs : HtmlAttrs := {})
+def menu (children : List (Node .listItemOrScript)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.elementOf .flow .listItem "menu" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .menu .flow .listItemOrScript children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 /-- One or more `<dt>` followed by one or more `<dd>`. -/
 structure DlGroup where
   term : Node .term
-  moreTerms : List (Node .term) := []
+  moreTerms : List (Node .termOrScript) := []
   desc : Node .description
-  moreDescs : List (Node .description) := []
+  moreDescs : List (Node .descriptionOrScript) := []
 
-def DlGroup.children (g : DlGroup) : List Child :=
-  g.term.child :: g.moreTerms.map Node.child ++ g.desc.child :: g.moreDescs.map Node.child
+abbrev DlGroup.kinds : List (SegK Web.Cat) :=
+  [.one (.html .term), .many (.html .termOrScript), .one (.html .description),
+    .many (.html .descriptionOrScript)]
+
+def DlGroup.segs (g : DlGroup) : Segs Web.vocab.sig Attrs DlGroup.kinds :=
+  segs![.one g.term, .many (Nodes.ofList g.moreTerms), .one g.desc,
+    .many (Nodes.ofList g.moreDescs)]
 
 /-- A `<dl>` holds either bare groups or groups each wrapped in a `<div>`, never a mixture. -/
 inductive DlContent where
   | groups (groups : List DlGroup)
-  | divs (divs : List (Node .descriptionGroup))
+  | divs (divs : List (Node .descriptionGroupOrScript))
 
 instance : Coe (List DlGroup) DlContent := ⟨.groups⟩
-instance : Coe (List (Node .descriptionGroup)) DlContent := ⟨.divs⟩
-
-def DlContent.children : DlContent → List Child
-  | .groups gs => gs.flatMap DlGroup.children
-  | .divs ds => ds.map Node.child
+instance : Coe (List (Node .descriptionGroupOrScript)) DlContent := ⟨.divs⟩
+instance : Coe (List (Node .descriptionGroup)) DlContent :=
+  ⟨fun ds => .divs (ds.map fun (d : Node .descriptionGroup) => (d : Node .descriptionGroupOrScript))⟩
 
 def dl (content : DlContent := .groups []) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.elementSeq .flow "dl" content.children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  let children : Seg Web.vocab.sig Attrs
+      (.alt [.groups DlGroup.kinds] [.many (.html .descriptionGroupOrScript)]) :=
+    match content with
+    | .groups gs => .inl segs![.groups (Groups.ofList (gs.map DlGroup.segs))]
+    | .divs ds => .inr segs![.many (Nodes.ofList ds)]
+  Web.elem (.html .dl) (.html .flow) (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+    segs![children]
 
 /-- A `<div>` wrapping one group of a `<dl>`. -/
 def dlDiv (group : DlGroup) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .descriptionGroup :=
-  Node.elementSeq .descriptionGroup "div" group.children
-    (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  Web.elem (.html .div) (.html .descriptionGroup) (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+    group.segs
 
 def dt (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .term :=
-  Node.elementOf .term .flow "dt" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .dt .term .flow children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def dd (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .description :=
-  Node.elementOf .description .flow "dd" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .dd .description .flow children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def blockquote (children : List (Node .flow)) (attrs : BlockquoteAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "blockquote" children (combineAttrs (BlockquoteAttrs.render attrs) rawAttrs)
+  listElement .blockquote .flow .flow children (combineAttrs (BlockquoteAttrs.render attrs) rawAttrs)
 
 /-- Where a `<figure>`'s caption goes, if it has one: its first child or its last. -/
 inductive FigureCaption where
@@ -253,107 +303,112 @@ inductive FigureCaption where
 
 def figure (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) (caption : FigureCaption := .none) : Node .flow :=
-  let children := children.map Node.child
-  Node.elementSeq .flow "figure"
-    (match caption with
-      | .none => children
-      | .first c => c.child :: children
-      | .last c => children ++ [c.child])
-    (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  let children := Nodes.ofList children
+  let content : Seg Web.vocab.sig Attrs
+      (.alt [.one (.html .figureCaption), .many (.html .flow)]
+        [.many (.html .flow), .opt (.html .figureCaption)]) :=
+    match caption with
+    | .none => .inr segs![.many children, .none]
+    | .first c => .inl segs![.one c, .many children]
+    | .last c => .inr segs![.many children, .some c]
+  Web.elem (.html .figure) (.html .flow) (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+    segs![content]
 
 def figcaption (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .figureCaption :=
-  Node.elementOf .figureCaption .flow "figcaption" children
+  listElement .figcaption .figureCaption .flow children
     (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 -- `pre`: flow content, phrasing-only children (preformatted text).
 def pre (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.elementOf .flow .phrasing "pre" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .pre .flow .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def code (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "code" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .code .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def a {cat : Category} [Transparent cat] (attrs : AAttrs) (children : List (Node cat))
     (rawAttrs : List (String × String) := []) : Node cat :=
-  Node.transparentElement cat "a" children (combineAttrs (AAttrs.render attrs) rawAttrs)
+  transparentElement .a cat children (combineAttrs (AAttrs.render attrs) rawAttrs)
+    (by rcases Transparent.cases (cat := cat) with rfl | rfl <;> decide)
+    (by rcases Transparent.cases (cat := cat) with rfl | rfl <;> decide +kernel)
 
 def strong (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "strong" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .strong .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def em (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "em" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .em .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def small (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "small" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .small .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def span (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "span" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .span .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def i (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "i" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .i .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def b (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "b" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .b .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def u (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "u" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .u .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def s (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "s" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .s .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def mark (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "mark" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .mark .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def cite (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "cite" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .cite .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def dfn (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "dfn" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .dfn .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def abbr (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "abbr" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .abbr .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def var (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "var" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .var .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def samp (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "samp" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .samp .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def kbd (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "kbd" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .kbd .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def sub (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "sub" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .sub .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def sup (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "sup" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .sup .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def bdi (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "bdi" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .bdi .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def bdo (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "bdo" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .bdo .phrasing .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 /-- A ruby annotation: one or more `<rt>`, or else an `<rp>` followed by one or more `<rt>`, each
 followed by an `<rp>`. -/
@@ -364,170 +419,188 @@ inductive RubyText where
 
 instance : Coe (Node .rubyText) RubyText := ⟨(.rt · [])⟩
 
-def RubyText.children : RubyText → List Child
-  | .rt first rest => first.child :: rest.map Node.child
-  | .parenthesized opening first rest =>
-    opening.child :: (first :: rest).flatMap fun (t, p) => [t.child, p.child]
-
 /-- Base text and its annotation. A nested `<ruby>` as the base isn't distinguished from
 phrasing content, nor is a `<ruby>` that the spec rules out of the base. -/
 structure RubySegment where
   base : List (Node .phrasing)
   text : RubyText
 
-def RubySegment.children (s : RubySegment) : List Child :=
-  s.base.map Node.child ++ s.text.children
+abbrev RubySegment.kinds : List (SegK Web.Cat) :=
+  [.many (.html .phrasing),
+    .alt [.one (.html .rubyText), .many (.html .rubyText)]
+      [.one (.html .rubyParenthesis), .one (.html .rubyText), .one (.html .rubyParenthesis),
+        .groups [.one (.html .rubyText), .one (.html .rubyParenthesis)]]]
+
+def RubySegment.segs (s : RubySegment) : Segs Web.vocab.sig Attrs RubySegment.kinds :=
+  segs![.many (Nodes.ofList s.base), match s.text with
+    | .rt first rest => .inl segs![.one first, .many (Nodes.ofList rest)]
+    | .parenthesized opening (t, p) rest =>
+      .inr segs![.one opening, .one t, .one p,
+        .groups (Groups.ofList (rest.map fun (t, p) => segs![.one t, .one p]))]]
 
 def ruby (segment : RubySegment) (more : List RubySegment := []) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.elementSeq .phrasing "ruby" ((segment :: more).flatMap RubySegment.children)
-    (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  Web.elem (.html .ruby) (.html .phrasing) (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+    (Segs.append segment.segs segs![.groups (Groups.ofList (more.map RubySegment.segs))])
 
 def rt (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .rubyText :=
-  Node.elementOf .rubyText .phrasing "rt" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .rt .rubyText .phrasing children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def rp (children : List (Node .phrasing)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .rubyParenthesis :=
-  Node.elementOf .rubyParenthesis .phrasing "rp" children
+  listElement .rp .rubyParenthesis .phrasing children
     (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def wbr (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.voidElement .phrasing "wbr" (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  voidElement .wbr .phrasing (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def q (children : List (Node .phrasing)) (attrs : QAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "q" children (combineAttrs (QAttrs.render attrs) rawAttrs)
+  listElement .q .phrasing .phrasing children (combineAttrs (QAttrs.render attrs) rawAttrs)
 
 def time (children : List (Node .phrasing)) (attrs : TimeAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "time" children (combineAttrs (TimeAttrs.render attrs) rawAttrs)
+  listElement .time .phrasing .phrasing children (combineAttrs (TimeAttrs.render attrs) rawAttrs)
 
 def data (attrs : DataAttrs) (children : List (Node .phrasing))
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "data" children (combineAttrs (DataAttrs.render attrs) rawAttrs)
+  listElement .data .phrasing .phrasing children (combineAttrs (DataAttrs.render attrs) rawAttrs)
 
 def ins {cat : Category} [Transparent cat] (children : List (Node cat))
     (attrs : InsDelAttrs := {}) (rawAttrs : List (String × String) := []) : Node cat :=
-  Node.transparentElement cat "ins" children (combineAttrs (InsDelAttrs.render attrs) rawAttrs)
+  transparentElement .ins cat children (combineAttrs (InsDelAttrs.render attrs) rawAttrs)
+    (by rcases Transparent.cases (cat := cat) with rfl | rfl <;> decide)
+    (by rcases Transparent.cases (cat := cat) with rfl | rfl <;> decide +kernel)
 
 def del {cat : Category} [Transparent cat] (children : List (Node cat))
     (attrs : InsDelAttrs := {}) (rawAttrs : List (String × String) := []) : Node cat :=
-  Node.transparentElement cat "del" children (combineAttrs (InsDelAttrs.render attrs) rawAttrs)
+  transparentElement .del cat children (combineAttrs (InsDelAttrs.render attrs) rawAttrs)
+    (by rcases Transparent.cases (cat := cat) with rfl | rfl <;> decide)
+    (by rcases Transparent.cases (cat := cat) with rfl | rfl <;> decide +kernel)
 
 def br (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.voidElement .phrasing "br" (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  voidElement .br .phrasing (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def form (children : List (Node .flow)) (attrs : FormAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "form" children (combineAttrs (FormAttrs.render attrs) rawAttrs)
+  listElement .form .flow .flow children (combineAttrs (FormAttrs.render attrs) rawAttrs)
 
 def fieldset (children : List (Node .flow)) (attrs : FieldsetAttrs := {})
     (rawAttrs : List (String × String) := []) (legend : Option (Node .legend) := none) :
     Node .flow :=
-  Node.elementSeq .flow "fieldset" (legend.toList.map Node.child ++ children.map Node.child)
-    (combineAttrs (FieldsetAttrs.render attrs) rawAttrs)
+  Web.elem (.html .fieldset) (.html .flow) (combineAttrs (FieldsetAttrs.render attrs) rawAttrs)
+    segs![Seg.ofOption _ legend, .many (Nodes.ofList children)]
 
 def legend (children : List (Node .phrasingOrHeading)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .legend :=
-  Node.elementOf .legend .phrasingOrHeading "legend" children
+  listElement .legend .legend .phrasingOrHeading children
     (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def input (attrs : InputAttrs := {}) (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.voidElement .phrasing "input" (combineAttrs (InputAttrs.render attrs) rawAttrs)
+  voidElement .input .phrasing (combineAttrs (InputAttrs.render attrs) rawAttrs)
 
 def label (children : List (Node .phrasing)) (attrs : LabelAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "label" children (combineAttrs (LabelAttrs.render attrs) rawAttrs)
+  listElement .label .phrasing .phrasing children (combineAttrs (LabelAttrs.render attrs) rawAttrs)
 
 def textarea (content : String) (attrs : TextareaAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.textElement .phrasing "textarea" content (combineAttrs (TextareaAttrs.render attrs) rawAttrs)
+  textElement .textarea .phrasing content (combineAttrs (TextareaAttrs.render attrs) rawAttrs)
 
 def option (label : String) (attrs : OptionAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .option :=
-  Node.textElement .option "option" label (combineAttrs (OptionAttrs.render attrs) rawAttrs)
+  textElement .option .option label (combineAttrs (OptionAttrs.render attrs) rawAttrs)
 
 def select (children : List (Node .selectChild)) (attrs : SelectAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.elementOf .phrasing .selectChild "select" children
+  listElement .select .phrasing .selectChild children
     (combineAttrs (SelectAttrs.render attrs) rawAttrs)
 
-def datalist (children : List (Node .option)) (attrs : HtmlAttrs := {})
+def datalist (children : List (Node .optionOrScript)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.elementOf .phrasing .option "datalist" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .datalist .phrasing .optionOrScript children
+    (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
-def optgroup (attrs : OptgroupAttrs) (children : List (Node .option))
+def optgroup (attrs : OptgroupAttrs) (children : List (Node .optionOrScript))
     (rawAttrs : List (String × String) := []) : Node .selectChild :=
-  Node.elementOf .selectChild .option "optgroup" children
+  listElement .optgroup .selectChild .optionOrScript children
     (combineAttrs (OptgroupAttrs.render attrs) rawAttrs)
 
 def button (children : List (Node .phrasing)) (attrs : ButtonAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "button" children (combineAttrs (ButtonAttrs.render attrs) rawAttrs)
+  listElement .button .phrasing .phrasing children (combineAttrs (ButtonAttrs.render attrs) rawAttrs)
 
 def output (children : List (Node .phrasing)) (attrs : OutputAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "output" children (combineAttrs (OutputAttrs.render attrs) rawAttrs)
+  listElement .output .phrasing .phrasing children (combineAttrs (OutputAttrs.render attrs) rawAttrs)
 
 def progress (children : List (Node .phrasing)) (attrs : ProgressAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "progress" children (combineAttrs (ProgressAttrs.render attrs) rawAttrs)
+  listElement .progress .phrasing .phrasing children
+    (combineAttrs (ProgressAttrs.render attrs) rawAttrs)
 
 def meter (children : List (Node .phrasing)) (attrs : MeterAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.element .phrasing "meter" children (combineAttrs (MeterAttrs.render attrs) rawAttrs)
+  listElement .meter .phrasing .phrasing children (combineAttrs (MeterAttrs.render attrs) rawAttrs)
 
 def details (summary : Node .summary) (children : List (Node .flow) := []) (attrs : OpenAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.elementSeq .flow "details" (summary.child :: children.map Node.child)
-    (combineAttrs (OpenAttrs.render attrs) rawAttrs)
+  Web.elem (.html .details) (.html .flow) (combineAttrs (OpenAttrs.render attrs) rawAttrs)
+    segs![.one summary, .many (Nodes.ofList children)]
 
 def summary (children : List (Node .phrasingOrHeading)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .summary :=
-  Node.elementOf .summary .phrasingOrHeading "summary" children
+  listElement .summary .summary .phrasingOrHeading children
     (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def dialog (children : List (Node .flow)) (attrs : OpenAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "dialog" children (combineAttrs (OpenAttrs.render attrs) rawAttrs)
+  listElement .dialog .flow .flow children (combineAttrs (OpenAttrs.render attrs) rawAttrs)
 
 def img (attrs : ImgAttrs) (rawAttrs : List (String × String) := []) : Node .image :=
-  Node.voidElement .image "img" (combineAttrs (ImgAttrs.render attrs) rawAttrs)
+  voidElement .img .image (combineAttrs (ImgAttrs.render attrs) rawAttrs)
 
 def hr (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.voidElement .flow "hr" (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  voidElement .hr .flow (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
-def picture (sources : List (Node .pictureSource)) (img : Node .image) (attrs : HtmlAttrs := {})
-    (rawAttrs : List (String × String) := []) : Node .phrasing :=
-  Node.elementSeq .phrasing "picture" (sources.map Node.child ++ [img.child])
-    (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+def picture (sources : List (Node .pictureSourceOrScript)) (img : Node .image)
+    (attrs : HtmlAttrs := {}) (rawAttrs : List (String × String) := []) : Node .phrasing :=
+  Web.elem (.html .picture) (.html .phrasing) (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+    segs![.many (Nodes.ofList sources), .one img]
 
 /-- The attributes a `<source>` in context `cat` takes: `srcset` in a `<picture>`, `src` in a
 media element. A media element's is the default, since a list coerced to a `MediaSource` gives
 its elements no expected type to choose by. -/
 class SourceContext (cat : Category) (attrs : outParam Type) where
   render : attrs → Attrs
+  build : Attrs → Node cat
 
-@[default_instance] instance : SourceContext .source SourceAttrs := ⟨SourceAttrs.render⟩
-instance : SourceContext .pictureSource PictureSourceAttrs := ⟨PictureSourceAttrs.render⟩
+@[default_instance] instance : SourceContext .source SourceAttrs :=
+  ⟨SourceAttrs.render, voidElement .source .source⟩
+instance : SourceContext .pictureSource PictureSourceAttrs :=
+  ⟨PictureSourceAttrs.render, voidElement .source .pictureSource⟩
+instance : SourceContext .pictureSourceOrScript PictureSourceAttrs :=
+  ⟨PictureSourceAttrs.render, fun attrs => (voidElement .source .pictureSource attrs : Node .pictureSource)⟩
 
-def source {cat : Category} {α : Type} [SourceContext cat α] (attrs : α)
+def source {cat : Category} {α : Type} [h : SourceContext cat α] (attrs : α)
     (rawAttrs : List (String × String) := []) : Node cat :=
-  Node.voidElement cat "source" (combineAttrs (SourceContext.render (cat := cat) attrs) rawAttrs)
+  h.build (combineAttrs (h.render attrs) rawAttrs)
 
 def track (attrs : TrackAttrs) (rawAttrs : List (String × String) := []) : Node .track :=
-  Node.voidElement .track "track" (combineAttrs (TrackAttrs.render attrs) rawAttrs)
+  voidElement .track .track (combineAttrs (TrackAttrs.render attrs) rawAttrs)
 
-def iframe (attrs : IframeAttrs) (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.element .flow "iframe" [] (combineAttrs (IframeAttrs.render attrs) rawAttrs)
+def iframe (attrs : IframeAttrs) (rawAttrs : List (String × String) := []) : Node .phrasing :=
+  voidElement .iframe .phrasing (combineAttrs (IframeAttrs.render attrs) rawAttrs)
 
-def embed (attrs : EmbedAttrs := {}) (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.voidElement .flow "embed" (combineAttrs (EmbedAttrs.render attrs) rawAttrs)
+def embed (attrs : EmbedAttrs := {}) (rawAttrs : List (String × String) := []) : Node .phrasing :=
+  voidElement .embed .phrasing (combineAttrs (EmbedAttrs.render attrs) rawAttrs)
 
 def object {cat : Category} [Transparent cat] (attrs : ObjectAttrs := {})
     (children : List (Node cat) := []) (rawAttrs : List (String × String) := []) : Node cat :=
-  Node.transparentElement cat "object" children (combineAttrs (ObjectAttrs.render attrs) rawAttrs)
+  transparentElement .object cat children (combineAttrs (ObjectAttrs.render attrs) rawAttrs)
+    (by rcases Transparent.cases (cat := cat) with rfl | rfl <;> decide)
+    (by rcases Transparent.cases (cat := cat) with rfl | rfl <;> decide +kernel)
 
 /-- A media element's resource: a `src` attribute, or else any number of `<source>` children. -/
 inductive MediaSource where
@@ -540,217 +613,128 @@ def MediaSource.attrs : MediaSource → Attrs
   | .src url => reqAttr "src" url
   | .sources _ => []
 
-def MediaSource.children : MediaSource → List Child
+def MediaSource.children : MediaSource → List (Node .source)
   | .src _ => []
-  | .sources ss => ss.map Node.child
+  | .sources ss => ss
 
-/-- The source, then any number of `<track>`, then transparent fallback `children`. -/
+/-- A media element: the source, then any number of `<track>`, then transparent fallback
+`children`. -/
+abbrev mediaElement (e : HtmlModel.Html.Elem) (cat : Category) [Transparent cat]
+    (source : MediaSource) (tracks : List (Node .track)) (children : List (Node cat))
+    (attrs : Attrs) (hc : Web.Cat.html cat ∈ Web.vocab.cats (.html e))
+    (ok : Web.vocab.Admits (.html e) (.html cat)
+      [.many (.html .source), .many (.html .track), .many (.html cat)]) : Node cat :=
+  Web.elem (.html e) (.html cat) (source.attrs ++ attrs)
+    segs![.many (Nodes.ofList source.children), .many (Nodes.ofList tracks),
+      .many (Nodes.ofList children)] hc ok
+
 def video {cat : Category} [Transparent cat] (source : MediaSource := .sources [])
     (tracks : List (Node .track) := []) (children : List (Node cat) := [])
     (attrs : VideoAttrs := {}) (rawAttrs : List (String × String) := []) : Node cat :=
-  Node.transparentElement cat "video" children
-    (combineAttrs (source.attrs ++ VideoAttrs.render attrs) rawAttrs)
-    (source.children ++ tracks.map Node.child)
+  mediaElement .video cat source tracks children (combineAttrs (VideoAttrs.render attrs) rawAttrs)
+    (by rcases Transparent.cases (cat := cat) with rfl | rfl <;> decide)
+    (by rcases Transparent.cases (cat := cat) with rfl | rfl <;> decide +kernel)
 
-/-- The source, then any number of `<track>`, then transparent fallback `children`. -/
 def audio {cat : Category} [Transparent cat] (source : MediaSource := .sources [])
     (tracks : List (Node .track) := []) (children : List (Node cat) := [])
     (attrs : AudioAttrs := {}) (rawAttrs : List (String × String) := []) : Node cat :=
-  Node.transparentElement cat "audio" children
-    (combineAttrs (source.attrs ++ AudioAttrs.render attrs) rawAttrs)
-    (source.children ++ tracks.map Node.child)
+  mediaElement .audio cat source tracks children (combineAttrs (AudioAttrs.render attrs) rawAttrs)
+    (by rcases Transparent.cases (cat := cat) with rfl | rfl <;> decide)
+    (by rcases Transparent.cases (cat := cat) with rfl | rfl <;> decide +kernel)
 
 def map {cat : Category} [Transparent cat] (attrs : MapAttrs)
     (children : List (Node cat) := []) (rawAttrs : List (String × String) := []) : Node cat :=
-  Node.transparentElement cat "map" children (combineAttrs (MapAttrs.render attrs) rawAttrs)
+  transparentElement .map cat children (combineAttrs (MapAttrs.render attrs) rawAttrs)
+    (by rcases Transparent.cases (cat := cat) with rfl | rfl <;> decide)
+    (by rcases Transparent.cases (cat := cat) with rfl | rfl <;> decide +kernel)
 
-def area (attrs : AreaAttrs := {}) (rawAttrs : List (String × String) := []) : Node .flow :=
-  Node.voidElement .flow "area" (combineAttrs (AreaAttrs.render attrs) rawAttrs)
+def area (attrs : AreaAttrs := {}) (rawAttrs : List (String × String) := []) : Node .phrasing :=
+  voidElement .area .phrasing (combineAttrs (AreaAttrs.render attrs) rawAttrs)
 
 /-- A table's body: any number of `<tbody>`, or else bare `<tr>` rows. -/
 inductive TableBody where
-  | sections (sections : List (Node .tableBody))
-  | rows (rows : List (Node .tableRow))
+  | sections (sections : List (Node .tableBodyOrScript))
+  | rows (rows : List (Node .tableRowOrScript))
 
-instance : Coe (List (Node .tableBody)) TableBody := ⟨.sections⟩
-instance : Coe (List (Node .tableRow)) TableBody := ⟨.rows⟩
-
-def TableBody.children : TableBody → List Child
-  | .sections ss => ss.map Node.child
-  | .rows rs => rs.map Node.child
+instance : Coe (List (Node .tableBodyOrScript)) TableBody := ⟨.sections⟩
+instance : Coe (List (Node .tableRowOrScript)) TableBody := ⟨.rows⟩
+instance : Coe (List (Node .tableBody)) TableBody :=
+  ⟨fun ss => .sections (ss.map fun (s : Node .tableBody) => (s : Node .tableBodyOrScript))⟩
+instance : Coe (List (Node .tableRow)) TableBody :=
+  ⟨fun rs => .rows (rs.map fun (r : Node .tableRow) => (r : Node .tableRowOrScript))⟩
 
 /-- An optional caption, any number of column groups, an optional head, the body, and an
 optional foot, in that order. The spec wants at least one row where `body` is `.rows`, but
 `.rows []` renders as `.sections []` does, which is valid. -/
 def table (body : TableBody := .sections []) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) (caption : Option (Node .tableCaption) := none)
-    (colgroups : List (Node .tableColumnGroup) := []) (thead : Option (Node .tableHead) := none)
-    (tfoot : Option (Node .tableFoot) := none) : Node .flow :=
-  Node.elementSeq .flow "table"
-    (caption.toList.map Node.child ++ colgroups.map Node.child ++ thead.toList.map Node.child ++
-      body.children ++ tfoot.toList.map Node.child)
-    (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+    (colgroups : List (Node .tableColumnGroupOrScript) := [])
+    (thead : Option (Node .tableHead) := none) (tfoot : Option (Node .tableFoot) := none) :
+    Node .flow :=
+  let body : Seg Web.vocab.sig Attrs
+      (.alt [.many (.html .tableBodyOrScript)] [.many (.html .tableRowOrScript)]) :=
+    match body with
+    | .sections ss => .inl segs![.many (Nodes.ofList ss)]
+    | .rows rs => .inr segs![.many (Nodes.ofList rs)]
+  Web.elem (.html .table) (.html .flow) (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+    segs![Seg.ofOption _ caption, .many (Nodes.ofList colgroups), Seg.ofOption _ thead, body,
+      Seg.ofOption _ tfoot]
 
 def caption (children : List (Node .flow)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .tableCaption :=
-  Node.elementOf .tableCaption .flow "caption" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .caption .tableCaption .flow children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 /-- A `<colgroup>` holds either a `span` attribute or `<col>` children, never both. -/
 inductive ColgroupContent where
   | span (span : String)
-  | cols (cols : List (Node .tableColumn))
+  | cols (cols : List (Node .tableColumnOrTemplate))
 
-instance : Coe (List (Node .tableColumn)) ColgroupContent := ⟨.cols⟩
+instance : Coe (List (Node .tableColumnOrTemplate)) ColgroupContent := ⟨.cols⟩
+instance : Coe (List (Node .tableColumn)) ColgroupContent :=
+  ⟨fun cs => .cols (cs.map fun (c : Node .tableColumn) => (c : Node .tableColumnOrTemplate))⟩
 
 def ColgroupContent.attrs : ColgroupContent → Attrs
   | .span n => reqAttr "span" n
   | .cols _ => []
 
-def ColgroupContent.children : ColgroupContent → List (Node .tableColumn)
+def ColgroupContent.children : ColgroupContent → List (Node .tableColumnOrTemplate)
   | .span _ => []
   | .cols cs => cs
 
 def colgroup (content : ColgroupContent := .cols []) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .tableColumnGroup :=
-  Node.elementOf .tableColumnGroup .tableColumn "colgroup" content.children
+  listElement .colgroup .tableColumnGroup .tableColumnOrTemplate content.children
     (combineAttrs (content.attrs ++ HtmlAttrs.render attrs) rawAttrs)
 
 def col (attrs : ColAttrs := {}) (rawAttrs : List (String × String) := []) : Node .tableColumn :=
-  Node.voidElement .tableColumn "col" (combineAttrs (ColAttrs.render attrs) rawAttrs)
+  voidElement .col .tableColumn (combineAttrs (ColAttrs.render attrs) rawAttrs)
 
-def thead (children : List (Node .tableRow)) (attrs : HtmlAttrs := {})
+def thead (children : List (Node .tableRowOrScript)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .tableHead :=
-  Node.elementOf .tableHead .tableRow "thead" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .thead .tableHead .tableRowOrScript children
+    (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
-def tbody (children : List (Node .tableRow)) (attrs : HtmlAttrs := {})
+def tbody (children : List (Node .tableRowOrScript)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .tableBody :=
-  Node.elementOf .tableBody .tableRow "tbody" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .tbody .tableBody .tableRowOrScript children
+    (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
-def tfoot (children : List (Node .tableRow)) (attrs : HtmlAttrs := {})
+def tfoot (children : List (Node .tableRowOrScript)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .tableFoot :=
-  Node.elementOf .tableFoot .tableRow "tfoot" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .tfoot .tableFoot .tableRowOrScript children
+    (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
-def tr (children : List (Node .tableCell)) (attrs : HtmlAttrs := {})
+def tr (children : List (Node .tableCellOrScript)) (attrs : HtmlAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .tableRow :=
-  Node.elementOf .tableRow .tableCell "tr" children (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
+  listElement .tr .tableRow .tableCellOrScript children
+    (combineAttrs (HtmlAttrs.render attrs) rawAttrs)
 
 def th (children : List (Node .flow)) (attrs : ThAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .tableCell :=
-  Node.elementOf .tableCell .flow "th" children (combineAttrs (ThAttrs.render attrs) rawAttrs)
+  listElement .th .tableCell .flow children (combineAttrs (ThAttrs.render attrs) rawAttrs)
 
 def td (children : List (Node .flow)) (attrs : TdAttrs := {})
     (rawAttrs : List (String × String) := []) : Node .tableCell :=
-  Node.elementOf .tableCell .flow "td" children (combineAttrs (TdAttrs.render attrs) rawAttrs)
-
-/-! `WellFormed` for the tag functions whose children aren't a single list, or whose shape
-depends on an argument or on their context. Each takes one hypothesis per argument; `Node.WellFormedChildren`'s lemmas discharge
-those for a `children` function. -/
-
-namespace Node
-
-open WellFormedChildren
-
-theorem hgroup_wellFormed (before : List (Node .paragraph)) (heading : Node .heading)
-    (after : List (Node .paragraph)) (attrs : HtmlAttrs) (rawAttrs : List (String × String))
-    (hbefore : ∀ n ∈ before, WellFormed n) (hheading : WellFormed heading)
-    (hafter : ∀ n ∈ after, WellFormed n) :
-    WellFormed (hgroup before heading after attrs rawAttrs) :=
-  elementSeq_wellFormed _ _ _ _ ((ofNodes hbefore).append (.cons hheading (ofNodes hafter)))
-
-theorem head_wellFormed (title : Node .title) (children : List (Node .metadata))
-    (attrs : HtmlAttrs) (rawAttrs : List (String × String)) (base : Option (Node .base))
-    (htitle : WellFormed title) (hchildren : ∀ n ∈ children, WellFormed n)
-    (hbase : ∀ n ∈ base, WellFormed n) :
-    WellFormed (head title children attrs rawAttrs base) :=
-  elementSeq_wellFormed _ _ _ _
-    (((ofOption hbase).append (ofNodes hchildren)).append (.cons htitle .nil))
-
-theorem DlGroup.children_wellFormed (g : DlGroup) (hterm : WellFormed g.term)
-    (hmoreTerms : ∀ n ∈ g.moreTerms, WellFormed n) (hdesc : WellFormed g.desc)
-    (hmoreDescs : ∀ n ∈ g.moreDescs, WellFormed n) : WellFormedChildren g.children :=
-  .cons hterm ((ofNodes hmoreTerms).append (.cons hdesc (ofNodes hmoreDescs)))
-
-theorem dl_wellFormed (content : DlContent) (attrs : HtmlAttrs)
-    (rawAttrs : List (String × String)) (hcontent : WellFormedChildren content.children) :
-    WellFormed (dl content attrs rawAttrs) :=
-  elementSeq_wellFormed _ _ _ _ hcontent
-
-theorem dlDiv_wellFormed (group : DlGroup) (attrs : HtmlAttrs)
-    (rawAttrs : List (String × String)) (hgroup : WellFormedChildren group.children) :
-    WellFormed (dlDiv group attrs rawAttrs) :=
-  elementSeq_wellFormed _ _ _ _ hgroup
-
-theorem figure_wellFormed (children : List (Node .flow)) (attrs : HtmlAttrs)
-    (rawAttrs : List (String × String)) (caption : FigureCaption)
-    (hchildren : ∀ n ∈ children, WellFormed n)
-    (hcaption : ∀ c, caption = .first c ∨ caption = .last c → WellFormed c) :
-    WellFormed (figure children attrs rawAttrs caption) := by
-  apply elementSeq_wellFormed
-  cases caption with
-  | none => exact ofNodes hchildren
-  | first c => exact .cons (hcaption c (.inl rfl)) (ofNodes hchildren)
-  | last c => exact (ofNodes hchildren).append (.cons (hcaption c (.inr rfl)) .nil)
-
-theorem ruby_wellFormed (segment : RubySegment) (more : List RubySegment) (attrs : HtmlAttrs)
-    (rawAttrs : List (String × String))
-    (hsegments : ∀ s ∈ segment :: more, WellFormedChildren s.children) :
-    WellFormed (ruby segment more attrs rawAttrs) :=
-  elementSeq_wellFormed _ _ _ _ (flatMap hsegments)
-
-theorem fieldset_wellFormed (children : List (Node .flow)) (attrs : FieldsetAttrs)
-    (rawAttrs : List (String × String)) (legend : Option (Node .legend))
-    (hchildren : ∀ n ∈ children, WellFormed n) (hlegend : ∀ n ∈ legend, WellFormed n) :
-    WellFormed (fieldset children attrs rawAttrs legend) :=
-  elementSeq_wellFormed _ _ _ _ ((ofOption hlegend).append (ofNodes hchildren))
-
-theorem details_wellFormed (summary : Node .summary) (children : List (Node .flow))
-    (attrs : OpenAttrs) (rawAttrs : List (String × String)) (hsummary : WellFormed summary)
-    (hchildren : ∀ n ∈ children, WellFormed n) :
-    WellFormed (details summary children attrs rawAttrs) :=
-  elementSeq_wellFormed _ _ _ _ (.cons hsummary (ofNodes hchildren))
-
-theorem picture_wellFormed (sources : List (Node .pictureSource)) (img : Node .image)
-    (attrs : HtmlAttrs) (rawAttrs : List (String × String))
-    (hsources : ∀ n ∈ sources, WellFormed n) (himg : WellFormed img) :
-    WellFormed (picture sources img attrs rawAttrs) :=
-  elementSeq_wellFormed _ _ _ _ ((ofNodes hsources).append (.cons himg .nil))
-
-theorem video_wellFormed {cat : Category} [Transparent cat] (source : MediaSource)
-    (tracks : List (Node .track)) (children : List (Node cat)) (attrs : VideoAttrs)
-    (rawAttrs : List (String × String)) (hsource : WellFormedChildren source.children)
-    (htracks : ∀ n ∈ tracks, WellFormed n) (hchildren : ∀ n ∈ children, WellFormed n) :
-    WellFormed (video source tracks children attrs rawAttrs) :=
-  transparentElement_wellFormed _ _ _ _ _ (hsource.append (ofNodes htracks)) hchildren
-
-theorem audio_wellFormed {cat : Category} [Transparent cat] (source : MediaSource)
-    (tracks : List (Node .track)) (children : List (Node cat)) (attrs : AudioAttrs)
-    (rawAttrs : List (String × String)) (hsource : WellFormedChildren source.children)
-    (htracks : ∀ n ∈ tracks, WellFormed n) (hchildren : ∀ n ∈ children, WellFormed n) :
-    WellFormed (audio source tracks children attrs rawAttrs) :=
-  transparentElement_wellFormed _ _ _ _ _ (hsource.append (ofNodes htracks)) hchildren
-
-theorem noscript_wellFormed {cat content : Category} [NoscriptContext cat content]
-    (children : List (Node content)) (attrs : HtmlAttrs) (rawAttrs : List (String × String))
-    (hchildren : ∀ n ∈ children, WellFormed n) :
-    WellFormed (noscript (cat := cat) children attrs rawAttrs) :=
-  NoscriptContext.build_wellFormed _ _ hchildren
-
-theorem colgroup_wellFormed (content : ColgroupContent) (attrs : HtmlAttrs)
-    (rawAttrs : List (String × String)) (hcontent : ∀ n ∈ content.children, WellFormed n) :
-    WellFormed (colgroup content attrs rawAttrs) :=
-  elementOf_wellFormed _ _ _ _ _ hcontent
-
-theorem table_wellFormed (body : TableBody) (attrs : HtmlAttrs)
-    (rawAttrs : List (String × String)) (caption : Option (Node .tableCaption))
-    (colgroups : List (Node .tableColumnGroup)) (thead : Option (Node .tableHead))
-    (tfoot : Option (Node .tableFoot)) (hbody : WellFormedChildren body.children)
-    (hcaption : ∀ n ∈ caption, WellFormed n) (hcolgroups : ∀ n ∈ colgroups, WellFormed n)
-    (hthead : ∀ n ∈ thead, WellFormed n) (htfoot : ∀ n ∈ tfoot, WellFormed n) :
-    WellFormed (table body attrs rawAttrs caption colgroups thead tfoot) :=
-  elementSeq_wellFormed _ _ _ _
-    (((((ofOption hcaption).append (ofNodes hcolgroups)).append (ofOption hthead)).append hbody).append
-      (ofOption htfoot))
-
-end Node
+  listElement .td .tableCell .flow children (combineAttrs (TdAttrs.render attrs) rawAttrs)
 
 end Html

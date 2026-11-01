@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.13.0] - 2026-11-01
+
+* Breaking: the tree is lean-html-model's, which checks each element's children against its content model; its own node primitives and content-model classes are gone, along with the per-tag well-formedness lemmas
+* Breaking: a list argument is typed by the category its position admits, such as `Node .listItemOrScript` for `ul`, which list items, script-supporting elements, and whitespace widen to
+* Breaking: `Node.render_wellFormed` takes `n.hasVerbatim = false` in place of `Node.WellFormed`
+* Breaking: `meta_` and `link` return `Node .phrasingMetadata`, and `iframe`, `embed`, and `area` phrasing content
+* Text is escaped when it is rendered, not when the tree is built
+* `script` or `template` may follow the first `dt` and the first `dd` of a group
+
 ## [0.12.0] - 2026-10-30
 
 * Child order and count are typed: `table`, `head`, `details`, `fieldset`, `figure`, `dl`, `picture`, `hgroup`, `ruby`, `colgroup`, `video`, and `audio` take their children as separate arguments, and `document` takes a `head` and a `body`

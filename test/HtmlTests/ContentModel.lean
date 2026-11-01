@@ -6,9 +6,11 @@ module
 
 import Html.Document
 import Html.Node
+import Html.Render
 import Html.Tags
 meta import Html.Document
 meta import Html.Node
+meta import Html.Render
 meta import Html.Tags
 
 namespace HtmlTests
@@ -48,8 +50,8 @@ open Html
 
 -- Script-supporting elements intermix through `List` arguments, and `<template>` among `<col>`s.
 #guard Node.render (ul [li ["a"], script { src := "a.js" }]) = "<ul><li>a</li><script src=\"a.js\"></script></ul>"
-#guard Node.render (table [tr [td ["1"], script { src := "a.js" }], template []]
-    (colgroups := [colgroup [col, template []]]))
+#guard Node.render (table (.rows [tr [td ["1"], script { src := "a.js" }], template []])
+    (colgroups := [colgroup (.cols [col, template []])]))
   = "<table><colgroup><col><template></template></colgroup>" ++
     "<tr><td>1</td><script src=\"a.js\"></script></tr><template></template></table>"
 #guard Node.render (select [option "a", script { src := "a.js" }])
@@ -79,6 +81,17 @@ open Html
   Node.render (table (rows.map fun r => tr (r.map fun (c : String) => td [c])))
     = "<table><tr><td>1</td><td>2</td></tr><tr><td>3</td><td>4</td></tr></table>"
 
+-- A list built at run time may mix every category that widens to its own.
+def outline (lines : List String) : List (Node .flow) :=
+  lines.map fun (l : String) => if l.isEmpty then hr else if l.startsWith "#" then h2 [l] else p [l, br]
+#guard Node.render (div (outline ["# A", "", "b"]))
+  = "<div><h2># A</h2><hr><p>b<br></p></div>"
+#guard
+  let items : List (Node .listItemOrScript) :=
+    ["a", "b"].map fun (i : String) => li [i]
+  Node.render (ul (script { src := "a.js" } :: Whitespace.newline :: items))
+    = "<ul><script src=\"a.js\"></script>\n<li>a</li><li>b</li></ul>"
+
 -- Ruby annotations lay out inline, since whitespace beside them would render.
 #guard let n := ruby ⟨["漢"], rt ["kan"]⟩
   n.renderPretty = n.render
@@ -99,28 +112,19 @@ open Html
   = "<div>a <em>b</em>\n<p>c</p>\n</div>"
 #guard Node.render (p ["a ", em ["b"]]) (lineBreaks := true) = "<p>a <em>b</em></p>"
 
-/-- `render_wellFormed` covers `lineBreaks`, and the structured tag functions' lemmas compose
-like the primitives'. -/
+/-- `render_wellFormed` covers `lineBreaks`. -/
 example : WellFormedHtml .html5
     (Node.render (details (summary ["More"]) [p ["Body"]]) (lineBreaks := true)) :=
-  Node.render_wellFormed _
-    (Node.details_wellFormed _ _ _ _
-      (Node.elementOf_wellFormed _ _ _ _ _
-        (by simpa using Node.widen_wellFormed (b := .phrasingOrHeading) (Node.text_wellFormed "More")))
-      (by
-        simp only [List.mem_singleton, forall_eq]
-        exact Node.widen_wellFormed
-          (Node.elementOf_wellFormed _ _ _ _ _ (by simpa using Node.text_wellFormed "Body"))))
-    (lineBreaks := true)
+  Node.render_wellFormed _ (by decide +kernel) (lineBreaks := true)
 
 -- Order: `<thead>` can't follow `<tbody>`, nor a caption stand among sections.
 /--
 error: Application type mismatch: The argument
   thead []
 has type
-  Node Category.tableHead
+  Node HtmlModel.Html.Cat.tableHead
 but is expected to have type
-  Node Category.tableBody
+  Node HtmlModel.Html.Cat.tableBody
 in the application
   List.cons (thead [])
 -/
@@ -129,13 +133,13 @@ example : Node .flow := table [tbody [], thead []]
 
 /--
 error: Application type mismatch: The argument
-  [caption [(Node.text "x").widen]]
+  [caption [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯]]
 has type
-  List (Node Category.tableCaption)
+  List (Node HtmlModel.Html.Cat.tableCaption)
 but is expected to have type
   optParam TableBody (TableBody.sections [])
 in the application
-  @table [caption [(Node.text "x").widen]]
+  @table [caption [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯]]
 -/
 #guard_msgs in
 example : Node .flow := table [caption ["x"]]
@@ -143,78 +147,78 @@ example : Node .flow := table [caption ["x"]]
 -- Categories: each of these is valid only inside its own parent.
 /--
 error: Application type mismatch: The argument
-  dt [(Node.text "x").widen]
+  dt [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯]
 has type
-  Node Category.term
+  Node HtmlModel.Html.Cat.term
 but is expected to have type
-  Node Category.flow
+  Node HtmlModel.Html.Cat.flow
 in the application
-  List.cons (dt [(Node.text "x").widen])
+  List.cons (dt [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯])
 -/
 #guard_msgs in
 example : Node .flow := div [dt ["x"]]
 
 /--
 error: Application type mismatch: The argument
-  dd [(Node.text "x").widen]
+  dd [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯]
 has type
-  Node Category.description
+  Node HtmlModel.Html.Cat.description
 but is expected to have type
-  Node Category.flow
+  Node HtmlModel.Html.Cat.flow
 in the application
-  List.cons (dd [(Node.text "x").widen])
+  List.cons (dd [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯])
 -/
 #guard_msgs in
 example : Node .flow := div [dd ["x"]]
 
 /--
 error: Application type mismatch: The argument
-  caption [(Node.text "x").widen]
+  caption [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯]
 has type
-  Node Category.tableCaption
+  Node HtmlModel.Html.Cat.tableCaption
 but is expected to have type
-  Node Category.flow
+  Node HtmlModel.Html.Cat.flow
 in the application
-  List.cons (caption [(Node.text "x").widen])
+  List.cons (caption [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯])
 -/
 #guard_msgs in
 example : Node .flow := div [caption ["x"]]
 
 /--
 error: Application type mismatch: The argument
-  summary [(Node.text "x").widen]
+  summary [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯]
 has type
-  Node Category.summary
+  Node HtmlModel.Html.Cat.summary
 but is expected to have type
-  Node Category.flow
+  Node HtmlModel.Html.Cat.flow
 in the application
-  List.cons (summary [(Node.text "x").widen])
+  List.cons (summary [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯])
 -/
 #guard_msgs in
 example : Node .flow := div [summary ["x"]]
 
 /--
 error: Application type mismatch: The argument
-  legend [(Node.text "x").widen]
+  legend [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯]
 has type
-  Node Category.legend
+  Node HtmlModel.Html.Cat.legend
 but is expected to have type
-  Node Category.flow
+  Node HtmlModel.Html.Cat.flow
 in the application
-  List.cons (legend [(Node.text "x").widen])
+  List.cons (legend [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯])
 -/
 #guard_msgs in
 example : Node .flow := div [legend ["x"]]
 
 /--
 error: Application type mismatch: The argument
-  figcaption [(Node.text "x").widen]
+  figcaption [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯]
 has type
-  Node Category.figureCaption
+  Node HtmlModel.Html.Cat.figureCaption
 but is expected to have type
-  Node Category.flow
+  Node HtmlModel.Html.Cat.flow
 in the application
-  List.cons (figcaption [(Node.text "x").widen])
+  List.cons (figcaption [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯])
 -/
 #guard_msgs in
 example : Node .flow := div [figcaption ["x"]]
@@ -223,9 +227,9 @@ example : Node .flow := div [figcaption ["x"]]
 error: Application type mismatch: The argument
   title "x"
 has type
-  Node Category.title
+  Node HtmlModel.Html.Cat.title
 but is expected to have type
-  Node Category.flow
+  Node HtmlModel.Html.Cat.flow
 in the application
   List.cons (title "x")
 -/
@@ -234,7 +238,7 @@ example : Node .flow := div [title "x"]
 
 /--
 error: failed to synthesize instance of type class
-  SourceContext Category.flow ?m.3
+  SourceContext HtmlModel.Html.Cat.flow ?m.3
 
 Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
 ---
@@ -245,13 +249,13 @@ example : Node .flow := div [source { src := "a.mp4" }]
 
 /--
 error: Application type mismatch: The argument
-  rt [Node.text "x"]
+  rt [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯]
 has type
-  Node Category.rubyText
+  Node HtmlModel.Html.Cat.rubyText
 but is expected to have type
-  Node Category.phrasing
+  Node HtmlModel.Html.Cat.phrasing
 in the application
-  List.cons (rt [Node.text "x"])
+  List.cons (rt [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯])
 -/
 #guard_msgs in
 example : Node .phrasing := span [rt ["x"]]
@@ -261,9 +265,9 @@ example : Node .phrasing := span [rt ["x"]]
 error: Application type mismatch: The argument
   body []
 has type
-  Node Category.body
+  Node HtmlModel.Html.Cat.body
 but is expected to have type
-  Node Category.head
+  Node HtmlModel.Html.Cat.head
 in the application
   @document (body [])
 -/
@@ -273,26 +277,26 @@ example : String := document (body []) (head (title "T"))
 -- `<details>`: a `<summary>` first, and only there.
 /--
 error: Application type mismatch: The argument
-  p [Node.text "x"]
+  p [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯]
 has type
-  Node Category.paragraph
+  Node HtmlModel.Html.Cat.paragraph
 but is expected to have type
-  Node Category.summary
+  Node HtmlModel.Html.Cat.summary
 in the application
-  @details (p [Node.text "x"])
+  @details (p [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯])
 -/
 #guard_msgs in
 example : Node .flow := details (p ["x"])
 
 /--
 error: Application type mismatch: The argument
-  summary [(Node.text "b").widen]
+  summary [HtmlModel.Web.widen (HtmlModel.Node.text "b") ⋯]
 has type
-  Node Category.summary
+  Node HtmlModel.Html.Cat.summary
 but is expected to have type
-  Node Category.flow
+  Node HtmlModel.Html.Cat.flow
 in the application
-  List.cons (summary [(Node.text "b").widen])
+  List.cons (summary [HtmlModel.Web.widen (HtmlModel.Node.text "b") ⋯])
 -/
 #guard_msgs in
 example : Node .flow := details (summary ["a"]) [summary ["b"]]
@@ -300,13 +304,13 @@ example : Node .flow := details (summary ["a"]) [summary ["b"]]
 -- `<fieldset>`: a `<legend>` only as the optional first child.
 /--
 error: Application type mismatch: The argument
-  legend [(Node.text "x").widen]
+  legend [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯]
 has type
-  Node Category.legend
+  Node HtmlModel.Html.Cat.legend
 but is expected to have type
-  Node Category.flow
+  Node HtmlModel.Html.Cat.flow
 in the application
-  List.cons (legend [(Node.text "x").widen])
+  List.cons (legend [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯])
 -/
 #guard_msgs in
 example : Node .flow := fieldset [legend ["x"]]
@@ -314,13 +318,13 @@ example : Node .flow := fieldset [legend ["x"]]
 -- `<figure>`: a `<figcaption>` only first or last.
 /--
 error: Application type mismatch: The argument
-  figcaption [(Node.text "x").widen]
+  figcaption [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯]
 has type
-  Node Category.figureCaption
+  Node HtmlModel.Html.Cat.figureCaption
 but is expected to have type
-  Node Category.flow
+  Node HtmlModel.Html.Cat.flow
 in the application
-  List.cons (figcaption [(Node.text "x").widen])
+  List.cons (figcaption [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯])
 -/
 #guard_msgs in
 example : Node .flow := figure [p ["a"], figcaption ["x"], p ["b"]]
@@ -328,31 +332,31 @@ example : Node .flow := figure [p ["a"], figcaption ["x"], p ["b"]]
 -- `<dl>`: terms before descriptions, and bare groups never mixed with `<div>`s.
 /--
 error: Type mismatch
-  dd [(Node.text "x").widen]
+  dd [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯]
 has type
-  Node Category.description
+  Node HtmlModel.Html.Cat.description
 but is expected to have type
-  Node Category.term
+  Node HtmlModel.Html.Cat.term
 ---
 error: Type mismatch
-  dt [(Node.text "y").widen]
+  dt [HtmlModel.Web.widen (HtmlModel.Node.text "y") ⋯]
 has type
-  Node Category.term
+  Node HtmlModel.Html.Cat.term
 but is expected to have type
-  Node Category.description
+  Node HtmlModel.Html.Cat.description
 -/
 #guard_msgs in
 example : DlGroup := { term := dd ["x"], desc := dt ["y"] }
 
 /--
 error: Application type mismatch: The argument
-  dt [(Node.text "x").widen]
+  dt [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯]
 has type
-  Node Category.term
+  Node HtmlModel.Html.Cat.term
 but is expected to have type
-  Node Category.descriptionGroup
+  Node HtmlModel.Html.Cat.descriptionGroupOrScript
 in the application
-  List.cons (dt [(Node.text "x").widen])
+  List.cons (dt [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯])
 -/
 #guard_msgs in
 example : Node .flow := dl (.divs [dt ["x"]])
@@ -362,9 +366,9 @@ example : Node .flow := dl (.divs [dt ["x"]])
 error: Application type mismatch: The argument
   img { src := "a", alt := "a" }
 has type
-  Node Category.image
+  Node HtmlModel.Html.Cat.image
 but is expected to have type
-  Node Category.pictureSource
+  Node HtmlModel.Html.Cat.pictureSourceOrScript
 in the application
   List.cons (img { src := "a", alt := "a" })
 -/
@@ -375,9 +379,9 @@ example : Node .phrasing := picture [img { src := "a", alt := "a" }] (source)
 error: Application type mismatch: The argument
   span []
 has type
-  Node Category.phrasing
+  Node HtmlModel.Html.Cat.phrasing
 but is expected to have type
-  Node Category.image
+  Node HtmlModel.Html.Cat.image
 in the application
   @picture [] (span [])
 -/
@@ -389,9 +393,9 @@ example : Node .phrasing := picture [] (span [])
 error: Application type mismatch: The argument
   track { src := "a.vtt" }
 has type
-  Node Category.track
+  Node HtmlModel.Html.Cat.track
 but is expected to have type
-  Node Category.source
+  Node HtmlModel.Html.Cat.source
 in the application
   List.cons (track { src := "a.vtt" })
 -/
@@ -400,7 +404,7 @@ example : Node .flow := video (.sources [track { src := "a.vtt" }])
 
 /--
 error: failed to synthesize instance of type class
-  SourceContext Category.flow ?m.6
+  SourceContext HtmlModel.Html.Cat.flow ?m.6
 
 Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
 ---
@@ -412,26 +416,26 @@ example : Node .flow := video (.src "a.mp4") [] [source { src := "a.mp4" }]
 -- `<ruby>`: annotations aren't base text, and `<rp>` only brackets `<rt>`.
 /--
 error: Application type mismatch: The argument
-  rt [Node.text "x"]
+  rt [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯]
 has type
-  Node Category.rubyText
+  Node HtmlModel.Html.Cat.rubyText
 but is expected to have type
-  Node Category.phrasing
+  Node HtmlModel.Html.Cat.phrasing
 in the application
-  List.cons (rt [Node.text "x"])
+  List.cons (rt [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯])
 -/
 #guard_msgs in
 example : Node .phrasing := ruby ⟨[rt ["x"]], rt ["y"]⟩
 
 /--
 error: Application type mismatch: The argument
-  rt [Node.text "y"]
+  rt [HtmlModel.Web.widen (HtmlModel.Node.text "y") ⋯]
 has type
-  Node Category.rubyText
+  Node HtmlModel.Html.Cat.rubyText
 but is expected to have type
-  Node Category.rubyParenthesis
+  Node HtmlModel.Html.Cat.rubyParenthesis
 in the application
-  @RubyText.parenthesized (rt [Node.text "y"])
+  @RubyText.parenthesized (rt [HtmlModel.Web.widen (HtmlModel.Node.text "y") ⋯])
 -/
 #guard_msgs in
 example : Node .phrasing := ruby ⟨["x"], .parenthesized (rt ["y"]) (rt ["y"], rp [")"])⟩
@@ -439,26 +443,26 @@ example : Node .phrasing := ruby ⟨["x"], .parenthesized (rt ["y"]) (rt ["y"], 
 -- `<hgroup>`: exactly one heading.
 /--
 error: Application type mismatch: The argument
-  h2 [Node.text "b"]
+  h2 [HtmlModel.Web.widen (HtmlModel.Node.text "b") ⋯]
 has type
-  Node Category.heading
+  Node HtmlModel.Html.Cat.heading
 but is expected to have type
-  Node Category.paragraph
+  Node HtmlModel.Html.Cat.paragraphOrScript
 in the application
-  List.cons (h2 [Node.text "b"])
+  List.cons (h2 [HtmlModel.Web.widen (HtmlModel.Node.text "b") ⋯])
 -/
 #guard_msgs in
 example : Node .flow := hgroup [] (h1 ["a"]) [h2 ["b"]]
 
 /--
 error: Application type mismatch: The argument
-  p [Node.text "a"]
+  p [HtmlModel.Web.widen (HtmlModel.Node.text "a") ⋯]
 has type
-  Node Category.paragraph
+  Node HtmlModel.Html.Cat.paragraph
 but is expected to have type
-  Node Category.heading
+  Node HtmlModel.Html.Cat.heading
 in the application
-  @hgroup [] (p [Node.text "a"])
+  @hgroup [] (p [HtmlModel.Web.widen (HtmlModel.Node.text "a") ⋯])
 -/
 #guard_msgs in
 example : Node .flow := hgroup [] (p ["a"])
@@ -471,7 +475,7 @@ error: Application type mismatch: The argument
 has type
   String
 but is expected to have type
-  Node Category.listItem
+  Node HtmlModel.Html.Cat.listItemOrScript
 in the application
   List.cons "hello"
 -/
@@ -484,7 +488,7 @@ error: Application type mismatch: The argument
 has type
   String
 but is expected to have type
-  Node Category.tableCell
+  Node HtmlModel.Html.Cat.tableCellOrScript
 in the application
   List.cons "hello"
 -/
@@ -495,7 +499,7 @@ example : Node .tableRow := tr ["hello"]
 error: could not synthesize default value for field 'isWhitespace' of 'Html.Whitespace' using tactics
 ---
 error: Tactic `decide` proved that the proposition
-  "x".toList.all isAsciiWhitespace = true
+  HtmlModel.isWhitespace "x" = true
 is false
 -/
 #guard_msgs in
@@ -503,7 +507,7 @@ example : Whitespace := { val := "x" }
 
 /--
 error: failed to synthesize instance of type class
-  InterElement Category.summary
+  HtmlModel.Web.Widens HtmlModel.Web.Cat.ws (HtmlModel.Web.Cat.html HtmlModel.Html.Cat.summary)
 
 Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
 -/
@@ -514,26 +518,26 @@ example : Node .flow := details (Node.whitespace .newline)
 -- an `h1` to `h6`, not another `<hgroup>`.
 /--
 error: Application type mismatch: The argument
-  p [Node.text "x"]
+  p [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯]
 has type
-  Node Category.paragraph
+  Node HtmlModel.Html.Cat.paragraph
 but is expected to have type
-  Node Category.phrasingOrHeading
+  Node HtmlModel.Html.Cat.phrasingOrHeading
 in the application
-  List.cons (p [Node.text "x"])
+  List.cons (p [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯])
 -/
 #guard_msgs in
 example : Node .summary := summary [p ["x"]]
 
 /--
 error: Application type mismatch: The argument
-  hgroup [] (h1 [Node.text "x"])
+  hgroup [] (h1 [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯])
 has type
-  Node Category.headingGroup
+  Node HtmlModel.Html.Cat.headingGroup
 but is expected to have type
-  Node Category.heading
+  Node HtmlModel.Html.Cat.heading
 in the application
-  @hgroup [] (hgroup [] (h1 [Node.text "x"]))
+  @hgroup [] (hgroup [] (h1 [HtmlModel.Web.widen (HtmlModel.Node.text "x") ⋯]))
 -/
 #guard_msgs in
 example : Node .headingGroup := hgroup [] (hgroup [] (h1 ["x"]))
@@ -541,37 +545,51 @@ example : Node .headingGroup := hgroup [] (hgroup [] (h1 ["x"]))
 -- Script-supporting elements: never among a `<colgroup>`'s columns or a media element's
 -- sources, and never in place of a required or optional element.
 /--
-error: failed to synthesize instance of type class
-  ScriptContext Category.tableColumn
-
-Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+error: Application type mismatch: The argument
+  script { src := "a.js" }
+has type
+  Node HtmlModel.Html.Cat.scriptSupporting
+but is expected to have type
+  Node HtmlModel.Html.Cat.tableColumn
+in the application
+  List.cons (script { src := "a.js" })
 -/
 #guard_msgs in
 example : Node .tableColumnGroup := colgroup [col, script { src := "a.js" }]
 
 /--
-error: failed to synthesize instance of type class
-  ScriptContext Category.source
-
-Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+error: Application type mismatch: The argument
+  script { src := "a.js" }
+has type
+  Node HtmlModel.Html.Cat.scriptSupporting
+but is expected to have type
+  Node HtmlModel.Html.Cat.source
+in the application
+  List.cons (script { src := "a.js" })
 -/
 #guard_msgs in
 example : Node .flow := video (.sources [script { src := "a.js" }])
 
 /--
-error: failed to synthesize instance of type class
-  ScriptContext Category.term
-
-Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+error: Type mismatch
+  script { src := "a.js" }
+has type
+  Node HtmlModel.Html.Cat.scriptSupporting
+but is expected to have type
+  Node HtmlModel.Html.Cat.term
 -/
 #guard_msgs in
 example : DlGroup := { term := script { src := "a.js" }, desc := dd ["x"] }
 
 /--
-error: failed to synthesize instance of type class
-  ScriptContext Category.tableHead
-
-Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+error: Application type mismatch: The argument
+  script { src := "a.js" }
+has type
+  Node HtmlModel.Html.Cat.scriptSupporting
+but is expected to have type
+  Node HtmlModel.Html.Cat.tableHead
+in the application
+  some (script { src := "a.js" })
 -/
 #guard_msgs in
 example : Node .flow := table (thead := some (script { src := "a.js" }))
@@ -591,10 +609,14 @@ example : Node .flow := video (.sources [source { src := "a.mp4", srcset := "a.m
 
 -- `<noscript>` in `<head>`: only `link` and `meta`.
 /--
-error: failed to synthesize instance of type class
-  ScriptContext Category.noscriptMetadata
-
-Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+error: Application type mismatch: The argument
+  script { src := "a.js" }
+has type
+  Node HtmlModel.Html.Cat.scriptSupporting
+but is expected to have type
+  Node (noscriptContent HtmlModel.Html.Cat.metadata)
+in the application
+  List.cons (script { src := "a.js" })
 -/
 #guard_msgs in
 example : Node .head := head (title "T") [noscript [script { src := "a.js" }]]
@@ -605,7 +627,7 @@ error: Application type mismatch: The argument
 has type
   String
 but is expected to have type
-  Node Category.noscriptMetadata
+  Node (noscriptContent HtmlModel.Html.Cat.metadata)
 in the application
   List.cons "x"
 -/
