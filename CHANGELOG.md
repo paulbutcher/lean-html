@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.14.1] - 2026-11-06
+
+* The `Html` module documentation matches the README's wording
+
 ## [0.14.0] - 2026-11-01
 
 * Rendering, `Node`, `Attrs`, `Dialect`, and `document` come from lean-html-renderer, which `import Html` re-exports

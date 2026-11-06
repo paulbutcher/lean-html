@@ -12,8 +12,8 @@ public import Html.Tags
 /-!
 # `Html`: a typed HTML5 library
 
-Builds HTML from Lean values, using Lean's type system to make illegal
-nesting and illegal child order unrepresentable.
+Builds HTML from Lean values, making illegal nesting and illegal child
+order type errors.
 
 The tree is lean-html-model's: `Node cat` is a node valid wherever category
 `cat` is, whose children were checked against its content model when it was
