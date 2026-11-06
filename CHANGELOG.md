@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.14.2] - 2026-11-06
+
+* Requires html-renderer 0.1.1
+
 ## [0.14.1] - 2026-11-06
 
 * The `Html` module documentation matches the README's wording
