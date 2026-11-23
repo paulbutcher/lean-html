@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.15.0] - 2026-11-23
+
+* Breaking: requires Lean v4.36.0; move to that toolchain
+
 ## [0.14.2] - 2026-11-06
 
 * Requires html-renderer 0.1.1
