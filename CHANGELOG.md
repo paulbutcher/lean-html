@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.15.1] - 2026-11-24
+
+* Requires html-model 0.5.0 and html-renderer 0.2.0
+
 ## [0.15.0] - 2026-11-23
 
 * Breaking: requires Lean v4.36.0; move to that toolchain
