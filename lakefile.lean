@@ -11,7 +11,7 @@ package html where
   leanOptions := #[⟨`warningAsError, true⟩]
 
 require «html-model» from git "https://github.com/paulbutcher/lean-html-model" @ "v0.5.1"
-require «html-renderer» from git "https://github.com/paulbutcher/lean-html-renderer" @ "v0.2.0"
+require «html-renderer» from git "https://github.com/paulbutcher/lean-html-renderer" @ "v0.2.1"
 
 @[default_target]
 lean_lib Html
