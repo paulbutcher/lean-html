@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.15.2] - 2026-11-24
+
+* Requires html-model 0.5.1
+
 ## [0.15.1] - 2026-11-24
 
 * Requires html-model 0.5.0 and html-renderer 0.2.0
